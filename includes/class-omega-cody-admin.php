@@ -351,29 +351,31 @@ class Omega_Cody_Admin {
 				</div>
 			<?php endif; ?>
 
-			<form id="omega-cody-sync-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 16px 0;">
-				<input type="hidden" name="action" value="omega_cody_sync" />
-				<?php wp_nonce_field( 'omega_cody_sync' ); ?>
-				<?php
-				submit_button(
-					__( 'Sync with Cody API', 'omega-cody' ),
-					'primary',
-					'omega_cody_sync_submit',
-					false,
-					$is_configured ? array() : array( 'disabled' => 'disabled' )
-					);
-					?>
-			</form>
-			<p id="omega-cody-last-sync-line" style="margin: 8px 0 12px 0; color: #646970; font-style: italic;">
-				<?php
-				printf(
-					/* translators: %s: last sync datetime */
-					esc_html__( 'Last sync: %s', 'omega-cody' ),
-					esc_html( $last_sync_label )
-				);
-				?>
-			</p>
-			<div id="omega-cody-sync-progress" style="display: none; margin: 12px 0 16px 0;">
+				<div style="display: flex; align-items: center; gap: 12px; margin: 16px 0 12px 0;">
+					<form id="omega-cody-sync-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 0;">
+						<input type="hidden" name="action" value="omega_cody_sync" />
+						<?php wp_nonce_field( 'omega_cody_sync' ); ?>
+						<?php
+						submit_button(
+							__( 'Sync with Cody API', 'omega-cody' ),
+							'primary',
+							'omega_cody_sync_submit',
+							false,
+							$is_configured ? array() : array( 'disabled' => 'disabled' )
+							);
+							?>
+					</form>
+					<p id="omega-cody-last-sync-line" style="margin: 0; color: #646970; font-style: italic;">
+						<?php
+						printf(
+							/* translators: %s: last sync datetime */
+							esc_html__( 'Last sync: %s', 'omega-cody' ),
+							esc_html( $last_sync_label )
+						);
+						?>
+					</p>
+				</div>
+				<div id="omega-cody-sync-progress" style="display: none; margin: 12px 0 16px 0;">
 				<div
 					style="width: 100%; background: #ffffff; border: 1px solid #dcdcde; border-radius: 4px; overflow: hidden; height: 14px;"
 					role="progressbar"
@@ -398,7 +400,8 @@ class Omega_Cody_Admin {
 							position: sticky;
 							top: 0;
 							z-index: 2;
-							background: #dddddd;
+							background: #1c2327;
+							color: #ffffff;
 						}
 
 						#omega-cody-conversations-scroll .omega-cody-thread-row:hover td {
