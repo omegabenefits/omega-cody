@@ -18,6 +18,7 @@ define( 'OMEGA_CODY_PLUGIN_FILE', __FILE__ );
 define( 'OMEGA_CODY_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'OMEGA_CODY_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'OMEGA_CODY_OPTION_NAME', 'omega_cody_options' );
+define( 'OMEGA_CODY_SYNC_STATE_OPTION', 'omega_cody_sync_state' );
 
 require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-storage.php';
 require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-api-client.php';

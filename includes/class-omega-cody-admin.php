@@ -48,6 +48,8 @@ class Omega_Cody_Admin {
 		add_action( 'admin_post_omega_cody_save_settings', array( $this, 'handle_save_settings' ) );
 		add_action( 'admin_post_omega_cody_reset_data', array( $this, 'handle_reset_data' ) );
 		add_action( 'admin_post_omega_cody_sync', array( $this, 'handle_sync' ) );
+		add_action( 'wp_ajax_omega_cody_sync_start', array( $this, 'ajax_sync_start' ) );
+		add_action( 'wp_ajax_omega_cody_sync_step', array( $this, 'ajax_sync_step' ) );
 	}
 
 	/**
@@ -201,6 +203,7 @@ class Omega_Cody_Admin {
 
 		$options      = omega_cody_get_options();
 		$is_configured = '' !== trim( (string) $options['api_key'] ) && '' !== trim( (string) $options['bot_id'] );
+		$sync_ajax_nonce = wp_create_nonce( 'omega_cody_sync_ajax' );
 
 		$total_items    = $this->storage->get_conversation_count();
 		$conversations  = array();
@@ -232,11 +235,33 @@ class Omega_Cody_Admin {
 				</div>
 			<?php endif; ?>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 16px 0;">
+			<form id="omega-cody-sync-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 16px 0;">
 				<input type="hidden" name="action" value="omega_cody_sync" />
 				<?php wp_nonce_field( 'omega_cody_sync' ); ?>
-				<?php submit_button( __( 'Sync from Cody API', 'omega-cody' ), 'primary', 'submit', false, $is_configured ? array() : array( 'disabled' => 'disabled' ) ); ?>
+				<?php
+				submit_button(
+					__( 'Sync from Cody API', 'omega-cody' ),
+					'primary',
+					'omega_cody_sync_submit',
+					false,
+					$is_configured ? array() : array( 'disabled' => 'disabled' )
+				);
+				?>
 			</form>
+			<div id="omega-cody-sync-progress" style="display: none; margin: 12px 0 16px 0; max-width: 760px;">
+				<div
+					style="width: 100%; background: #f0f0f1; border: 1px solid #dcdcde; border-radius: 4px; overflow: hidden; height: 14px;"
+					role="progressbar"
+					aria-valuemin="0"
+					aria-valuemax="100"
+					aria-valuenow="0"
+					aria-label="<?php echo esc_attr__( 'Sync progress', 'omega-cody' ); ?>"
+					id="omega-cody-sync-progressbar"
+				>
+					<div id="omega-cody-sync-progressbar-fill" style="height: 100%; width: 0%; background: #2271b1; transition: width .2s ease;"></div>
+				</div>
+				<p id="omega-cody-sync-live-status-text" style="margin: 8px 0 0 0;"></p>
+			</div>
 
 			<div id="omega-cody-conversations-scroll" style="max-height: 560px; overflow-y: auto; border: 1px solid #dcdcde; border-radius: 4px;">
 				<table class="widefat striped" style="border: 0;">
@@ -284,7 +309,189 @@ class Omega_Cody_Admin {
 			<script>
 				(function() {
 					var storageKey = 'omega_cody_conversations_scroll_top';
+					var syncForm = document.getElementById('omega-cody-sync-form');
+					var syncButton = document.getElementById('omega_cody_sync_submit');
+					var statusWrap = document.getElementById('omega-cody-sync-progress');
+					var statusText = document.getElementById('omega-cody-sync-live-status-text');
+					var progressBar = document.getElementById('omega-cody-sync-progressbar');
+					var progressFill = document.getElementById('omega-cody-sync-progressbar-fill');
 					var container = document.getElementById('omega-cody-conversations-scroll');
+					var pollTimer = null;
+					var syncAjaxNonce = <?php echo wp_json_encode( $sync_ajax_nonce ); ?>;
+					var ajaxUrl = <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>;
+					var isConfigured = <?php echo wp_json_encode( $is_configured ); ?>;
+
+					function setStatus(text) {
+						if (!statusWrap || !statusText) {
+							return;
+						}
+
+						statusWrap.style.display = 'block';
+						statusText.textContent = text;
+					}
+
+					function setProgress(percent) {
+						if (!progressBar || !progressFill) {
+							return;
+						}
+
+						var safePercent = percent;
+						if (safePercent < 0) {
+							safePercent = 0;
+						}
+						if (safePercent > 100) {
+							safePercent = 100;
+						}
+
+						progressFill.style.width = String(safePercent) + '%';
+						progressBar.setAttribute('aria-valuenow', String(Math.round(safePercent)));
+					}
+
+					function buildProgressPercent(state) {
+						if (!state || !state.results) {
+							return 0;
+						}
+
+						var total = Number(state.total_conversations_expected || 0);
+						if (!total || total <= 0) {
+							return 0;
+						}
+
+						var completed;
+						if (state.phase === 'conversations') {
+							completed = Number(state.results.conversations_processed || 0);
+						} else {
+							completed = Number(state.results.conversations_skipped || 0) +
+								Number(state.results.conversations_message_synced || 0);
+						}
+
+						if (completed < 0) {
+							completed = 0;
+						}
+
+						return Math.round((completed / total) * 100);
+					}
+
+					function setSyncButtonEnabled(enabled, label) {
+						if (!syncButton) {
+							return;
+						}
+
+						syncButton.disabled = !enabled;
+						if (label) {
+							syncButton.value = label;
+						}
+					}
+
+						function buildProgressText(state) {
+						if (!state || !state.results) {
+							return 'Sync in progress...';
+						}
+
+						var pieces = [];
+						if (state.progress_message) {
+							pieces.push(state.progress_message);
+						}
+							pieces.push(
+								'Processed ' + String(state.results.conversations_processed || 0) +
+								' conversations, added ' + String(state.results.conversations_added || 0) +
+								', skipped ' + String(state.results.conversations_skipped || 0) +
+								', messages added ' + String(state.results.messages_added || 0) + '.'
+							);
+
+							if (state.total_conversations_expected && Number(state.total_conversations_expected) > 0) {
+								pieces.push(
+									'Total conversations expected: ' + String(state.total_conversations_expected) + '.'
+								);
+							}
+
+							return pieces.join(' ');
+						}
+
+					function postSyncAction(action) {
+						var formData = new window.FormData();
+						formData.append('action', action);
+						formData.append('_ajax_nonce', syncAjaxNonce);
+
+						return window.fetch(ajaxUrl, {
+							method: 'POST',
+							credentials: 'same-origin',
+							body: formData
+						}).then(function(response) {
+							return response.json();
+						});
+					}
+
+					function startPollingSteps() {
+						if (pollTimer) {
+							window.clearTimeout(pollTimer);
+							pollTimer = null;
+						}
+
+						postSyncAction('omega_cody_sync_step').then(function(payload) {
+							if (!payload || payload.success !== true || !payload.data || !payload.data.state) {
+								if (payload && payload.data && payload.data.message) {
+									throw new Error(payload.data.message);
+								}
+								throw new Error('Invalid sync step response.');
+							}
+
+								var state = payload.data.state;
+								if (state.status === 'running') {
+									setStatus(buildProgressText(state));
+									setProgress(buildProgressPercent(state));
+									pollTimer = window.setTimeout(startPollingSteps, 1200);
+									return;
+								}
+
+								if (state.status === 'success') {
+									setProgress(100);
+									setStatus(buildProgressText(state));
+									setSyncButtonEnabled(true, 'Sync from Cody API');
+									var summaryUrl = new window.URL(window.location.href);
+									summaryUrl.searchParams.set('omega_cody_sync_status', 'success');
+									summaryUrl.searchParams.set('processed', String(state.results.conversations_processed || 0));
+									summaryUrl.searchParams.set('added', String(state.results.conversations_added || 0));
+									summaryUrl.searchParams.set('skipped', String(state.results.conversations_skipped || 0));
+									summaryUrl.searchParams.set('messages_added', String(state.results.messages_added || 0));
+									window.setTimeout(function() {
+										window.location.href = summaryUrl.toString();
+									}, 500);
+									return;
+								}
+
+								setStatus(state.progress_message || 'Sync failed.');
+								setSyncButtonEnabled(true, 'Sync from Cody API');
+							}).catch(function(error) {
+								setStatus(error && error.message ? error.message : 'Sync request failed.');
+								setSyncButtonEnabled(true, 'Sync from Cody API');
+							});
+						}
+
+						if (syncForm && window.fetch && isConfigured) {
+							syncForm.addEventListener('submit', function(event) {
+								event.preventDefault();
+								setSyncButtonEnabled(false, 'Syncing...');
+								setProgress(0);
+								setStatus('Starting sync...');
+
+								postSyncAction('omega_cody_sync_start').then(function(payload) {
+								if (!payload || payload.success !== true || !payload.data || !payload.data.state) {
+									if (payload && payload.data && payload.data.message) {
+										throw new Error(payload.data.message);
+									}
+									throw new Error('Unable to start sync.');
+								}
+
+									setStatus(buildProgressText(payload.data.state));
+									setProgress(buildProgressPercent(payload.data.state));
+									startPollingSteps();
+								}).catch(function(error) {
+									setStatus(error && error.message ? error.message : 'Could not start sync.');
+									setSyncButtonEnabled(true, 'Sync from Cody API');
+								});
+							});
+					}
 
 					if (!container) {
 						return;
@@ -406,6 +613,9 @@ class Omega_Cody_Admin {
 		check_admin_referer( 'omega_cody_reset_data' );
 
 		$was_reset = $this->storage->reset_all_data();
+		if ( $was_reset ) {
+			delete_option( OMEGA_CODY_SYNC_STATE_OPTION );
+		}
 
 		$redirect_url = add_query_arg(
 			array(
@@ -464,6 +674,91 @@ class Omega_Cody_Admin {
 	}
 
 	/**
+	 * Start AJAX sync run.
+	 *
+	 * @return void
+	 */
+	public function ajax_sync_start() {
+		if ( ! current_user_can( 'read' ) ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'You are not allowed to perform this action.', 'omega-cody' ),
+				),
+				403
+			);
+		}
+
+		check_ajax_referer( 'omega_cody_sync_ajax' );
+
+		$options = omega_cody_get_options();
+		if ( '' === trim( (string) $options['api_key'] ) || '' === trim( (string) $options['bot_id'] ) ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'API Key and Bot ID are required.', 'omega-cody' ),
+				),
+				400
+			);
+		}
+
+		$state = $this->sync_service->get_initial_sync_state();
+		$this->save_sync_state( $state );
+
+		wp_send_json_success(
+			array(
+				'state' => $state,
+			)
+		);
+	}
+
+	/**
+	 * Process one AJAX sync step.
+	 *
+	 * @return void
+	 */
+	public function ajax_sync_step() {
+		if ( ! current_user_can( 'read' ) ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'You are not allowed to perform this action.', 'omega-cody' ),
+				),
+				403
+			);
+		}
+
+		check_ajax_referer( 'omega_cody_sync_ajax' );
+
+		$state = $this->get_sync_state();
+		if ( empty( $state ) || ! is_array( $state ) ) {
+			$state = $this->sync_service->get_initial_sync_state();
+		}
+
+		$options = omega_cody_get_options();
+		$step_result = $this->sync_service->run_incremental_step( $state, $options['api_key'], $options['bot_id'] );
+
+		if ( is_wp_error( $step_result ) ) {
+			$state['status']           = 'error';
+			$state['progress_message'] = $step_result->get_error_message();
+			$state['updated_at_gmt']   = current_time( 'mysql', true );
+			$state['finished_at_gmt']  = current_time( 'mysql', true );
+			$this->save_sync_state( $state );
+
+			wp_send_json_success(
+				array(
+					'state' => $state,
+				)
+			);
+		}
+
+		$this->save_sync_state( $step_result );
+
+		wp_send_json_success(
+			array(
+				'state' => $step_result,
+			)
+		);
+	}
+
+	/**
 	 * Print sync notices on conversations screen.
 	 *
 	 * @return void
@@ -476,7 +771,7 @@ class Omega_Cody_Admin {
 		$status = sanitize_text_field( wp_unslash( $_GET['omega_cody_sync_status'] ) );
 		$class  = 'success' === $status ? 'notice-success' : 'notice-error';
 		?>
-		<div class="notice <?php echo esc_attr( $class ); ?> is-dismissible">
+		<div class="notice <?php echo esc_attr( $class ); ?>">
 			<p>
 				<?php
 				if ( 'success' === $status ) {
@@ -517,6 +812,31 @@ class Omega_Cody_Admin {
 		$redirect_url = add_query_arg( array_merge( $base_args, $args ), admin_url( 'admin.php' ) );
 		wp_safe_redirect( $redirect_url );
 		exit;
+	}
+
+	/**
+	 * Get saved sync state from options table.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function get_sync_state() {
+		$state = get_option( OMEGA_CODY_SYNC_STATE_OPTION, array() );
+
+		if ( ! is_array( $state ) ) {
+			return array();
+		}
+
+		return $state;
+	}
+
+	/**
+	 * Persist sync state in options table.
+	 *
+	 * @param array<string, mixed> $state Sync state.
+	 * @return void
+	 */
+	private function save_sync_state( array $state ) {
+		update_option( OMEGA_CODY_SYNC_STATE_OPTION, $state, false );
 	}
 
 	/**
