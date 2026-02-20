@@ -59,8 +59,8 @@ class Omega_Cody_Admin {
 	 */
 	public function register_admin_pages() {
 		add_menu_page(
-			__( 'Chatbot Log', 'omega-cody' ),
-			__( 'Chatbot Log', 'omega-cody' ),
+			__( 'Chatbot Logs', 'omega-cody' ),
+			__( 'Chatbot Logs', 'omega-cody' ),
 			'read',
 			'omega-cody-conversations',
 			array( $this, 'render_conversations_page' ),
@@ -241,6 +241,8 @@ class Omega_Cody_Admin {
 		$options      = omega_cody_get_options();
 		$is_configured = '' !== trim( (string) $options['api_key'] ) && '' !== trim( (string) $options['bot_id'] );
 		$sync_ajax_nonce = wp_create_nonce( 'omega_cody_sync_ajax' );
+		$last_sync_gmt   = get_option( OMEGA_CODY_LAST_SYNC_OPTION, '' );
+		$last_sync_label = $this->format_time_ago_from_gmt( $last_sync_gmt );
 
 		$total_items    = $this->storage->get_conversation_count();
 		$conversations  = array();
@@ -299,14 +301,23 @@ class Omega_Cody_Admin {
 				<?php wp_nonce_field( 'omega_cody_sync' ); ?>
 				<?php
 				submit_button(
-					__( 'Sync from Cody API', 'omega-cody' ),
+					__( 'Sync with Cody API', 'omega-cody' ),
 					'primary',
 					'omega_cody_sync_submit',
 					false,
 					$is_configured ? array() : array( 'disabled' => 'disabled' )
+					);
+					?>
+			</form>
+			<p id="omega-cody-last-sync-line" style="margin: 8px 0 12px 0; color: #646970; font-style: italic;">
+				<?php
+				printf(
+					/* translators: %s: last sync datetime */
+					esc_html__( 'Last sync: %s', 'omega-cody' ),
+					esc_html( $last_sync_label )
 				);
 				?>
-			</form>
+			</p>
 			<div id="omega-cody-sync-progress" style="display: none; margin: 12px 0 16px 0;">
 				<div
 					style="width: 100%; background: #ffffff; border: 1px solid #dcdcde; border-radius: 4px; overflow: hidden; height: 14px;"
@@ -339,8 +350,8 @@ class Omega_Cody_Admin {
 				<table class="widefat striped" style="border: 0;">
 					<thead>
 						<tr>
-							<th><?php echo esc_html__( 'First User Message', 'omega-cody' ); ?></th>
-							<th><?php echo esc_html__( 'Messages', 'omega-cody' ); ?></th>
+							<th><?php echo esc_html__( 'Opening Message', 'omega-cody' ); ?></th>
+							<th><?php echo esc_html__( 'Total Messages', 'omega-cody' ); ?></th>
 							<th><?php echo esc_html__( 'Created', 'omega-cody' ); ?></th>
 						</tr>
 					</thead>
@@ -396,6 +407,7 @@ class Omega_Cody_Admin {
 					var progressBar = document.getElementById('omega-cody-sync-progressbar');
 					var progressFill = document.getElementById('omega-cody-sync-progressbar-fill');
 					var pageTitle = document.getElementById('omega-cody-page-title');
+					var lastSyncLine = document.getElementById('omega-cody-last-sync-line');
 					var container = document.getElementById('omega-cody-conversations-scroll');
 					var pollTimer = null;
 					var syncAjaxNonce = <?php echo wp_json_encode( $sync_ajax_nonce ); ?>;
@@ -417,6 +429,14 @@ class Omega_Cody_Admin {
 						}
 
 						pageTitle.style.display = isVisible ? '' : 'none';
+					}
+
+					function setLastSyncVisible(isVisible) {
+						if (!lastSyncLine) {
+							return;
+						}
+
+						lastSyncLine.style.display = isVisible ? '' : 'none';
 					}
 
 					function setProgress(percent) {
@@ -533,6 +553,7 @@ class Omega_Cody_Admin {
 									var state = payload.data.state;
 									if (state.status === 'running') {
 										setTitleVisible(false);
+										setLastSyncVisible(false);
 										setStatus(buildProgressText(state));
 										setProgress(buildProgressPercent(state));
 										pollTimer = window.setTimeout(startPollingSteps, 1200);
@@ -542,7 +563,7 @@ class Omega_Cody_Admin {
 									if (state.status === 'success') {
 										setProgress(100);
 										setStatus(buildProgressText(state));
-										setSyncButtonEnabled(true, 'Sync from Cody API');
+										setSyncButtonEnabled(true, 'Sync with Cody API');
 									var summaryUrl = new window.URL(window.location.href);
 									summaryUrl.searchParams.set('omega_cody_sync_status', 'success');
 									summaryUrl.searchParams.set('processed', String(state.results.conversations_processed || 0));
@@ -557,11 +578,13 @@ class Omega_Cody_Admin {
 
 									setStatus(state.progress_message || 'Sync failed.');
 									setTitleVisible(true);
-									setSyncButtonEnabled(true, 'Sync from Cody API');
+									setLastSyncVisible(true);
+									setSyncButtonEnabled(true, 'Sync with Cody API');
 								}).catch(function(error) {
 									setStatus(error && error.message ? error.message : 'Sync request failed.');
 									setTitleVisible(true);
-									setSyncButtonEnabled(true, 'Sync from Cody API');
+									setLastSyncVisible(true);
+									setSyncButtonEnabled(true, 'Sync with Cody API');
 								});
 							}
 
@@ -569,6 +592,7 @@ class Omega_Cody_Admin {
 								syncForm.addEventListener('submit', function(event) {
 									event.preventDefault();
 									setTitleVisible(false);
+									setLastSyncVisible(false);
 									setSyncButtonEnabled(false, 'Syncing...');
 									setProgress(0);
 									setStatus('Starting sync...');
@@ -587,7 +611,8 @@ class Omega_Cody_Admin {
 									}).catch(function(error) {
 										setStatus(error && error.message ? error.message : 'Could not start sync.');
 										setTitleVisible(true);
-										setSyncButtonEnabled(true, 'Sync from Cody API');
+										setLastSyncVisible(true);
+										setSyncButtonEnabled(true, 'Sync with Cody API');
 									});
 								});
 						}
@@ -662,9 +687,16 @@ class Omega_Cody_Admin {
 					<div>
 						<?php foreach ( $messages as $message ) : ?>
 							<?php $is_machine = ! empty( $message->machine ); ?>
-							<div style="border: 1px solid #dcdcde; border-radius: 4px; padding: 12px; margin: 12px 0; background: <?php echo esc_attr( $is_machine ? '#f6f7f7' : '#ffffff' ); ?>;">
+							<div style="border: 1px solid #dcdcde; border-radius: 4px; padding: 12px; margin: 12px 0; background: <?php echo esc_attr( $is_machine ? '#ffffff' : '#f5f3e2' ); ?>;">
 								<p style="margin-top: 0;">
-									<strong><?php echo esc_html( $is_machine ? __( 'Assistant', 'omega-cody' ) : __( 'User', 'omega-cody' ) ); ?></strong>
+									<strong>
+										<?php if ( $is_machine ) : ?>
+											<span class="dashicons dashicons-editor-quote" aria-hidden="true"></span>
+										<?php else : ?>
+											<span class="dashicons dashicons-admin-users" aria-hidden="true"></span>
+										<?php endif; ?>
+										<?php echo esc_html( $is_machine ? __( 'Chatbot', 'omega-cody' ) : __( 'User', 'omega-cody' ) ); ?>
+									</strong>
 									<?php if ( ! empty( $message->failed_responding ) ) : ?>
 										<span style="color: #b32d2e;">(<?php echo esc_html__( 'Failed response', 'omega-cody' ); ?>)</span>
 									<?php endif; ?>
@@ -672,8 +704,8 @@ class Omega_Cody_Admin {
 										<span style="color: #b32d2e;">(<?php echo esc_html__( 'Flagged', 'omega-cody' ); ?>)</span>
 									<?php endif; ?>
 								</p>
-								<div><?php echo wp_kses_post( wpautop( esc_html( $message->content ) ) ); ?></div>
-								<p style="margin-bottom: 0; color: #646970;">
+								<div><?php echo wp_kses_post( $this->format_message_content_html( $message->content ) ); ?></div>
+								<p style="margin-bottom: 0; color: #b9bfc8; font-style: italic;">
 									<?php echo esc_html( $this->format_unix_timestamp( $message->remote_created_at ) ); ?>
 								</p>
 							</div>
@@ -748,6 +780,7 @@ class Omega_Cody_Admin {
 		$was_reset = $this->storage->reset_all_data();
 		if ( $was_reset ) {
 			delete_option( OMEGA_CODY_SYNC_STATE_OPTION );
+			delete_option( OMEGA_CODY_LAST_SYNC_OPTION );
 		}
 
 		$redirect_url = add_query_arg(
@@ -794,6 +827,8 @@ class Omega_Cody_Admin {
 				)
 			);
 		}
+
+		$this->record_last_sync_time();
 
 		$this->redirect_with_sync_notice(
 			array(
@@ -883,6 +918,9 @@ class Omega_Cody_Admin {
 		}
 
 		$this->save_sync_state( $step_result );
+		if ( isset( $step_result['status'] ) && 'success' === $step_result['status'] ) {
+			$this->record_last_sync_time();
+		}
 
 		wp_send_json_success(
 			array(
@@ -970,6 +1008,15 @@ class Omega_Cody_Admin {
 	 */
 	private function save_sync_state( array $state ) {
 		update_option( OMEGA_CODY_SYNC_STATE_OPTION, $state, false );
+	}
+
+	/**
+	 * Save current GMT timestamp as last successful sync time.
+	 *
+	 * @return void
+	 */
+	private function record_last_sync_time() {
+		update_option( OMEGA_CODY_LAST_SYNC_OPTION, current_time( 'mysql', true ), false );
 	}
 
 	/**
@@ -1064,5 +1111,48 @@ class Omega_Cody_Admin {
 		}
 
 		return wp_html_excerpt( $clean_message, 140, '...' );
+	}
+
+	/**
+	 * Render message body with clickable URLs.
+	 *
+	 * @param mixed $message Message content.
+	 * @return string
+	 */
+	private function format_message_content_html( $message ) {
+		$plain_text = esc_html( (string) $message );
+		$linked     = make_clickable( $plain_text );
+
+		return wpautop( $linked );
+	}
+
+	/**
+	 * Format GMT datetime as relative human-readable age.
+	 *
+	 * @param string|null $gmt_datetime GMT mysql datetime.
+	 * @return string
+	 */
+	private function format_time_ago_from_gmt( $gmt_datetime ) {
+		if ( empty( $gmt_datetime ) || ! is_string( $gmt_datetime ) ) {
+			return __( 'Never', 'omega-cody' );
+		}
+
+		$timestamp = strtotime( $gmt_datetime . ' GMT' );
+		if ( false === $timestamp || $timestamp <= 0 ) {
+			return __( 'Never', 'omega-cody' );
+		}
+
+		$now = time();
+		if ( $timestamp > $now ) {
+			$timestamp = $now;
+		}
+
+		$time_diff = human_time_diff( $timestamp, $now );
+		if ( '' === $time_diff ) {
+			return __( 'Just now', 'omega-cody' );
+		}
+
+		/* translators: %s: relative time interval */
+		return sprintf( __( '%s ago', 'omega-cody' ), $time_diff );
 	}
 }
