@@ -180,6 +180,8 @@ class Omega_Cody_Sync_Service {
 			'phase'                    => 'conversations',
 			'next_conversations_page'  => 1,
 			'total_conversations_expected' => 0,
+			'total_message_conversations' => 0,
+			'current_message_conversation_number' => 0,
 			'pending_conversation_ids' => array(),
 			'current_conversation_id'  => '',
 			'current_messages_page'    => 1,
@@ -318,7 +320,14 @@ class Omega_Cody_Sync_Service {
 
 		$state['current_conversation_id'] = (string) array_shift( $state['pending_conversation_ids'] );
 		$state['current_messages_page']   = 1;
-		$state['progress_message']        = __( 'Starting message sync...', 'omega-cody' );
+		$state['total_message_conversations'] = count( $state['pending_conversation_ids'] ) + 1;
+		$state['current_message_conversation_number'] = 1;
+		$state['progress_message']        = sprintf(
+			/* translators: 1: current conversation position, 2: total conversations in message phase */
+			__( 'Importing messages for conversation %1$d of %2$d...', 'omega-cody' ),
+			$state['current_message_conversation_number'],
+			$state['total_message_conversations']
+		);
 		$state['updated_at_gmt']          = current_time( 'mysql', true );
 
 		return $state;
@@ -332,6 +341,13 @@ class Omega_Cody_Sync_Service {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	private function run_message_step( array $state, $api_key ) {
+		if ( $state['total_message_conversations'] <= 0 ) {
+			$state['total_message_conversations'] = count( $state['pending_conversation_ids'] );
+			if ( '' !== $state['current_conversation_id'] ) {
+				++$state['total_message_conversations'];
+			}
+		}
+
 		if ( '' === $state['current_conversation_id'] ) {
 			if ( empty( $state['pending_conversation_ids'] ) ) {
 				$state['status']           = 'success';
@@ -343,6 +359,9 @@ class Omega_Cody_Sync_Service {
 
 			$state['current_conversation_id'] = (string) array_shift( $state['pending_conversation_ids'] );
 			$state['current_messages_page']   = 1;
+			if ( $state['current_message_conversation_number'] <= 0 ) {
+				$state['current_message_conversation_number'] = 1;
+			}
 		}
 
 		$response = $this->api_client->list_messages(
@@ -381,9 +400,10 @@ class Omega_Cody_Sync_Service {
 		if ( $next_message_page > 0 ) {
 			$state['current_messages_page'] = $next_message_page;
 			$state['progress_message']      = sprintf(
-				/* translators: 1: conversation id, 2: page number */
-				__( 'Syncing messages for conversation %1$s (page %2$d)...', 'omega-cody' ),
-				$state['current_conversation_id'],
+				/* translators: 1: current conversation position, 2: total conversations in message phase, 3: page number */
+				__( 'Syncing messages for conversation %1$d of %2$d (page %3$d)...', 'omega-cody' ),
+				$state['current_message_conversation_number'],
+				$state['total_message_conversations'],
 				$next_message_page
 			);
 			$state['updated_at_gmt'] = current_time( 'mysql', true );
@@ -405,10 +425,12 @@ class Omega_Cody_Sync_Service {
 
 		$state['current_conversation_id'] = (string) array_shift( $state['pending_conversation_ids'] );
 		$state['current_messages_page']   = 1;
+		++$state['current_message_conversation_number'];
 		$state['progress_message']        = sprintf(
-			/* translators: %s: conversation id */
-			__( 'Starting messages for conversation %s...', 'omega-cody' ),
-			$state['current_conversation_id']
+			/* translators: 1: current conversation position, 2: total conversations in message phase */
+			__( 'Importing messages for conversation %1$d of %2$d...', 'omega-cody' ),
+			$state['current_message_conversation_number'],
+			$state['total_message_conversations']
 		);
 		$state['updated_at_gmt'] = current_time( 'mysql', true );
 
@@ -545,6 +567,8 @@ class Omega_Cody_Sync_Service {
 		$state['phase']                    = sanitize_key( (string) $state['phase'] );
 		$state['next_conversations_page']  = max( 1, absint( $state['next_conversations_page'] ) );
 		$state['total_conversations_expected'] = absint( $state['total_conversations_expected'] );
+		$state['total_message_conversations'] = absint( $state['total_message_conversations'] );
+		$state['current_message_conversation_number'] = absint( $state['current_message_conversation_number'] );
 		$state['current_conversation_id']  = sanitize_text_field( (string) $state['current_conversation_id'] );
 		$state['current_messages_page']    = max( 1, absint( $state['current_messages_page'] ) );
 		$state['conversation_page_guard']  = absint( $state['conversation_page_guard'] );

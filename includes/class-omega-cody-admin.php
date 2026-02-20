@@ -258,9 +258,9 @@ class Omega_Cody_Admin {
 				);
 				?>
 			</form>
-			<div id="omega-cody-sync-progress" style="display: none; margin: 12px 0 16px 0; max-width: 760px;">
+			<div id="omega-cody-sync-progress" style="display: none; margin: 12px 0 16px 0;">
 				<div
-					style="width: 100%; background: #f0f0f1; border: 1px solid #dcdcde; border-radius: 4px; overflow: hidden; height: 14px;"
+					style="width: 100%; background: #ffffff; border: 1px solid #dcdcde; border-radius: 4px; overflow: hidden; height: 14px;"
 					role="progressbar"
 					aria-valuemin="0"
 					aria-valuemax="100"
@@ -415,14 +415,21 @@ class Omega_Cody_Admin {
 					}
 
 						function buildProgressText(state) {
-						if (!state || !state.results) {
-							return 'Sync in progress...';
-						}
+							if (!state || !state.results) {
+								return 'Sync in progress...';
+							}
 
-						var pieces = [];
-						if (state.progress_message) {
-							pieces.push(state.progress_message);
-						}
+							var pieces = [];
+							if (state.progress_message) {
+								pieces.push(state.progress_message);
+							}
+							if (state.phase === 'messages' && state.status === 'running') {
+								pieces.push(
+									'Total Messages added ' + String(state.results.messages_added || 0) + '.'
+								);
+								return pieces.join(' ');
+							}
+
 							pieces.push(
 								'Processed ' + String(state.results.conversations_processed || 0) +
 								' conversations, added ' + String(state.results.conversations_added || 0) +
@@ -430,10 +437,8 @@ class Omega_Cody_Admin {
 								', messages added ' + String(state.results.messages_added || 0) + '.'
 							);
 
-							if (state.total_conversations_expected && Number(state.total_conversations_expected) > 0) {
-								pieces.push(
-									'Total conversations expected: ' + String(state.total_conversations_expected) + '.'
-								);
+							if (state.phase === 'conversations' && state.total_conversations_expected && Number(state.total_conversations_expected) > 0) {
+								pieces.push('Total conversations expected: ' + String(state.total_conversations_expected) + '.');
 							}
 
 							return pieces.join(' ');
