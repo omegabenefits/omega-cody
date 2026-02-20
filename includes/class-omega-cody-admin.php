@@ -112,15 +112,15 @@ class Omega_Cody_Admin {
 	 * @return void
 	 */
 	public function register_admin_pages() {
-		add_menu_page(
-			__( 'Chatbot Logs', 'omega-cody' ),
-			__( 'Chatbot Logs', 'omega-cody' ),
-			'read',
-			'omega-cody-conversations',
-			array( $this, 'render_conversations_page' ),
-			'dashicons-format-chat',
-			65
-		);
+			add_menu_page(
+				__( 'Chatbot Logs', 'omega-cody' ),
+				__( 'Chatbot Logs', 'omega-cody' ),
+				'read',
+				'omega-cody-conversations',
+				array( $this, 'render_conversations_page' ),
+				'dashicons-format-chat',
+				5
+			);
 
 		add_submenu_page(
 			'omega-cody-conversations',
