@@ -35,6 +35,7 @@ function omega_cody_get_options() {
 	$defaults = array(
 		'api_key' => '',
 		'bot_id'  => '',
+		'bot_name' => '',
 	);
 
 	$options = get_option( OMEGA_CODY_OPTION_NAME, array() );

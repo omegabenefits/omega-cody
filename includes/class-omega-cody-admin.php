@@ -104,7 +104,26 @@ class Omega_Cody_Admin {
 
 			<?php if ( isset( $_GET['omega_cody_updated'] ) ) : ?>
 				<div class="notice notice-success is-dismissible">
-					<p><?php echo esc_html__( 'Settings saved.', 'omega-cody' ); ?></p>
+					<p>
+						<?php
+						$was_validated = isset( $_GET['omega_cody_validated'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['omega_cody_validated'] ) );
+						if ( $was_validated ) {
+							echo esc_html__( 'Settings saved. API call succeeded, the API key is valid, and the Bot ID was found.', 'omega-cody' );
+						} else {
+							echo esc_html__( 'Settings saved.', 'omega-cody' );
+						}
+						?>
+					</p>
+				</div>
+			<?php endif; ?>
+			<?php if ( isset( $_GET['omega_cody_settings_status'] ) && 'error' === sanitize_text_field( wp_unslash( $_GET['omega_cody_settings_status'] ) ) ) : ?>
+				<div class="notice notice-error is-dismissible">
+					<p>
+						<?php
+						$error_message = isset( $_GET['omega_cody_settings_msg'] ) ? sanitize_text_field( wp_unslash( $_GET['omega_cody_settings_msg'] ) ) : __( 'Could not save settings.', 'omega-cody' );
+						echo esc_html( $error_message );
+						?>
+					</p>
 				</div>
 			<?php endif; ?>
 			<?php if ( isset( $_GET['omega_cody_reset'] ) ) : ?>
@@ -139,7 +158,7 @@ class Omega_Cody_Admin {
 									autocomplete="off"
 								/>
 								<p class="description">
-									<?php echo esc_html__( 'Cody API bearer token.', 'omega-cody' ); ?>
+									<?php echo esc_html__( 'Cody API bearer token', 'omega-cody' ); ?>
 								</p>
 							</td>
 						</tr>
@@ -156,7 +175,25 @@ class Omega_Cody_Admin {
 									class="regular-text"
 								/>
 								<p class="description">
-									<?php echo esc_html__( 'Bot identifier used to filter conversations.', 'omega-cody' ); ?>
+									<?php echo esc_html__( 'Which CodyAI Bot conversations will be retrieved from', 'omega-cody' ); ?>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
+								<label for="omega_cody_bot_name"><?php echo esc_html__( 'Bot Name', 'omega-cody' ); ?></label>
+							</th>
+							<td>
+								<input
+									name="omega_cody_bot_name"
+									type="text"
+									id="omega_cody_bot_name"
+									value="<?php echo esc_attr( '' !== $options['bot_name'] ? $options['bot_name'] : __( 'Unknown (save settings)', 'omega-cody' ) ); ?>"
+									class="regular-text"
+									readonly="readonly"
+								/>
+								<p class="description">
+									<?php echo esc_html__( 'Retrieved from Cody when settings are saved', 'omega-cody' ); ?>
 								</p>
 							</td>
 						</tr>
@@ -223,15 +260,27 @@ class Omega_Cody_Admin {
 		}
 		?>
 		<div class="wrap">
-			<h1>
+			<h1 id="omega-cody-page-title">
 				<?php
-				echo esc_html(
-					sprintf(
-						/* translators: %d: total saved conversations */
-						_n( '%d Conversation Thread', '%d Conversation Threads', $total_items, 'omega-cody' ),
-						$total_items
-					)
-				);
+				$bot_display_name = trim( (string) $options['bot_name'] );
+				if ( '' !== $bot_display_name ) {
+					echo esc_html(
+						sprintf(
+							/* translators: 1: conversation count, 2: bot name */
+							__( '%1$s Conversations with %2$s Chatbot', 'omega-cody' ),
+							number_format_i18n( $total_items ),
+							$bot_display_name
+						)
+					);
+				} else {
+					echo esc_html(
+						sprintf(
+							/* translators: %s: conversation count */
+							__( '%s Conversations', 'omega-cody' ),
+							number_format_i18n( $total_items )
+						)
+					);
+				}
 				?>
 			</h1>
 
@@ -270,7 +319,7 @@ class Omega_Cody_Admin {
 				>
 					<div id="omega-cody-sync-progressbar-fill" style="height: 100%; width: 0%; background: #2271b1; transition: width .2s ease;"></div>
 				</div>
-				<p id="omega-cody-sync-live-status-text" style="margin: 8px 0 0 0;"></p>
+				<p id="omega-cody-sync-live-status-text" style="margin: 8px 0 0 0; font-style: italic;"></p>
 			</div>
 
 			<div id="omega-cody-conversations-scroll" style="max-height: 560px; overflow-y: auto; border: 1px solid #dcdcde; border-radius: 4px;">
@@ -346,6 +395,7 @@ class Omega_Cody_Admin {
 					var statusText = document.getElementById('omega-cody-sync-live-status-text');
 					var progressBar = document.getElementById('omega-cody-sync-progressbar');
 					var progressFill = document.getElementById('omega-cody-sync-progressbar-fill');
+					var pageTitle = document.getElementById('omega-cody-page-title');
 					var container = document.getElementById('omega-cody-conversations-scroll');
 					var pollTimer = null;
 					var syncAjaxNonce = <?php echo wp_json_encode( $sync_ajax_nonce ); ?>;
@@ -359,6 +409,14 @@ class Omega_Cody_Admin {
 
 						statusWrap.style.display = 'block';
 						statusText.textContent = text;
+					}
+
+					function setTitleVisible(isVisible) {
+						if (!pageTitle) {
+							return;
+						}
+
+						pageTitle.style.display = isVisible ? '' : 'none';
 					}
 
 					function setProgress(percent) {
@@ -472,18 +530,19 @@ class Omega_Cody_Admin {
 								throw new Error('Invalid sync step response.');
 							}
 
-								var state = payload.data.state;
-								if (state.status === 'running') {
-									setStatus(buildProgressText(state));
-									setProgress(buildProgressPercent(state));
-									pollTimer = window.setTimeout(startPollingSteps, 1200);
-									return;
-								}
+									var state = payload.data.state;
+									if (state.status === 'running') {
+										setTitleVisible(false);
+										setStatus(buildProgressText(state));
+										setProgress(buildProgressPercent(state));
+										pollTimer = window.setTimeout(startPollingSteps, 1200);
+										return;
+									}
 
-								if (state.status === 'success') {
-									setProgress(100);
-									setStatus(buildProgressText(state));
-									setSyncButtonEnabled(true, 'Sync from Cody API');
+									if (state.status === 'success') {
+										setProgress(100);
+										setStatus(buildProgressText(state));
+										setSyncButtonEnabled(true, 'Sync from Cody API');
 									var summaryUrl = new window.URL(window.location.href);
 									summaryUrl.searchParams.set('omega_cody_sync_status', 'success');
 									summaryUrl.searchParams.set('processed', String(state.results.conversations_processed || 0));
@@ -494,22 +553,25 @@ class Omega_Cody_Admin {
 										window.location.href = summaryUrl.toString();
 									}, 500);
 									return;
-								}
+									}
 
-								setStatus(state.progress_message || 'Sync failed.');
-								setSyncButtonEnabled(true, 'Sync from Cody API');
-							}).catch(function(error) {
-								setStatus(error && error.message ? error.message : 'Sync request failed.');
-								setSyncButtonEnabled(true, 'Sync from Cody API');
-							});
-						}
+									setStatus(state.progress_message || 'Sync failed.');
+									setTitleVisible(true);
+									setSyncButtonEnabled(true, 'Sync from Cody API');
+								}).catch(function(error) {
+									setStatus(error && error.message ? error.message : 'Sync request failed.');
+									setTitleVisible(true);
+									setSyncButtonEnabled(true, 'Sync from Cody API');
+								});
+							}
 
 						if (syncForm && window.fetch && isConfigured) {
-							syncForm.addEventListener('submit', function(event) {
-								event.preventDefault();
-								setSyncButtonEnabled(false, 'Syncing...');
-								setProgress(0);
-								setStatus('Starting sync...');
+								syncForm.addEventListener('submit', function(event) {
+									event.preventDefault();
+									setTitleVisible(false);
+									setSyncButtonEnabled(false, 'Syncing...');
+									setProgress(0);
+									setStatus('Starting sync...');
 
 								postSyncAction('omega_cody_sync_start').then(function(payload) {
 								if (!payload || payload.success !== true || !payload.data || !payload.data.state) {
@@ -520,14 +582,15 @@ class Omega_Cody_Admin {
 								}
 
 									setStatus(buildProgressText(payload.data.state));
-									setProgress(buildProgressPercent(payload.data.state));
-									startPollingSteps();
-								}).catch(function(error) {
-									setStatus(error && error.message ? error.message : 'Could not start sync.');
-									setSyncButtonEnabled(true, 'Sync from Cody API');
+										setProgress(buildProgressPercent(payload.data.state));
+										startPollingSteps();
+									}).catch(function(error) {
+										setStatus(error && error.message ? error.message : 'Could not start sync.');
+										setTitleVisible(true);
+										setSyncButtonEnabled(true, 'Sync from Cody API');
+									});
 								});
-							});
-					}
+						}
 
 					if (!container) {
 						return;
@@ -636,26 +699,38 @@ class Omega_Cody_Admin {
 
 		$api_key = isset( $_POST['omega_cody_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['omega_cody_api_key'] ) ) : '';
 		$bot_id  = isset( $_POST['omega_cody_bot_id'] ) ? sanitize_text_field( wp_unslash( $_POST['omega_cody_bot_id'] ) ) : '';
+		$bot_name = '';
+		$was_validated = false;
+
+		if ( '' !== $api_key || '' !== $bot_id ) {
+			if ( '' === $api_key || '' === $bot_id ) {
+				$this->redirect_settings_error( __( 'Both API Key and Bot ID are required.', 'omega-cody' ) );
+			}
+
+			$resolved_bot_name = $this->sync_service->resolve_bot_name( $api_key, $bot_id );
+			if ( is_wp_error( $resolved_bot_name ) ) {
+				$this->redirect_settings_error( $resolved_bot_name->get_error_message() );
+			}
+
+			$bot_name = sanitize_text_field( (string) $resolved_bot_name );
+			if ( '' === $bot_name ) {
+				$this->redirect_settings_error( __( 'Bot ID was not found for the provided API Key.', 'omega-cody' ) );
+			}
+
+			$was_validated = true;
+		}
 
 		update_option(
 			OMEGA_CODY_OPTION_NAME,
 			array(
 				'api_key' => $api_key,
 				'bot_id'  => $bot_id,
+				'bot_name' => $bot_name,
 			),
 			false
 		);
 
-		$redirect_url = add_query_arg(
-			array(
-				'page'               => 'omega-cody-settings',
-				'omega_cody_updated' => 1,
-			),
-			admin_url( 'admin.php' )
-		);
-
-		wp_safe_redirect( $redirect_url );
-		exit;
+		$this->redirect_settings_success( $was_validated );
 	}
 
 	/**
@@ -829,7 +904,7 @@ class Omega_Cody_Admin {
 		$status = sanitize_text_field( wp_unslash( $_GET['omega_cody_sync_status'] ) );
 		$class  = 'success' === $status ? 'notice-success' : 'notice-error';
 		?>
-		<div class="notice <?php echo esc_attr( $class ); ?>">
+		<div class="notice <?php echo esc_attr( $class ); ?> is-dismissible">
 			<p>
 				<?php
 				if ( 'success' === $status ) {
@@ -895,6 +970,45 @@ class Omega_Cody_Admin {
 	 */
 	private function save_sync_state( array $state ) {
 		update_option( OMEGA_CODY_SYNC_STATE_OPTION, $state, false );
+	}
+
+	/**
+	 * Redirect to settings page with success message.
+	 *
+	 * @return void
+	 */
+	private function redirect_settings_success( $was_validated = false ) {
+		$redirect_url = add_query_arg(
+			array(
+				'page'               => 'omega-cody-settings',
+				'omega_cody_updated' => 1,
+				'omega_cody_validated' => $was_validated ? 1 : 0,
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect_url );
+		exit;
+	}
+
+	/**
+	 * Redirect to settings page with error notice.
+	 *
+	 * @param string $message Error message.
+	 * @return void
+	 */
+	private function redirect_settings_error( $message ) {
+		$redirect_url = add_query_arg(
+			array(
+				'page'                      => 'omega-cody-settings',
+				'omega_cody_settings_status' => 'error',
+				'omega_cody_settings_msg'    => sanitize_text_field( (string) $message ),
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect_url );
+		exit;
 	}
 
 	/**

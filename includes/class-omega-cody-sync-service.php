@@ -53,6 +53,17 @@ class Omega_Cody_Sync_Service {
 	}
 
 	/**
+	 * Resolve bot name for a bot id using Cody API.
+	 *
+	 * @param string $api_key API key.
+	 * @param string $bot_id  Bot id.
+	 * @return string|WP_Error
+	 */
+	public function resolve_bot_name( $api_key, $bot_id ) {
+		return $this->api_client->find_bot_name_by_id( $api_key, $bot_id );
+	}
+
+	/**
 	 * Sync conversations and unsynced conversation messages.
 	 *
 	 * @param string $api_key Cody API key.
