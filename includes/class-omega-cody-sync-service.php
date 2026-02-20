@@ -2,7 +2,7 @@
 /**
  * Sync coordinator for conversations and messages.
  *
- * @package OmegaCody
+ * @package Omega_Cody
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

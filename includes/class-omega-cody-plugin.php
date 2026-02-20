@@ -2,7 +2,7 @@
 /**
  * Main plugin orchestrator.
  *
- * @package OmegaCody
+ * @package Omega_Cody
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

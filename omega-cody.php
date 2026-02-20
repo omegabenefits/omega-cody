@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name: Omega Cody Conversations
+ * Plugin Name: OMEGA CodyAI Chatbot Logs
  * Description: Retrieve, store, and display Cody chatbot conversation threads in WordPress admin.
- * Version: 0.1.0
- * Author: Omega Cody
+ * Version: 1.0
+ * Author: Omega Benefits
  * Text Domain: omega-cody
  *
- * @package OmegaCody
+ * @package Omega_Cody
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

@@ -2,7 +2,7 @@
 /**
  * Admin screens and actions.
  *
- * @package OmegaCody
+ * @package Omega_Cody
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
