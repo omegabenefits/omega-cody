@@ -67,6 +67,7 @@ class Omega_Cody_Admin {
 
 		$options       = omega_cody_get_options();
 		$is_configured = '' !== trim( (string) $options['api_key'] ) && '' !== trim( (string) $options['bot_id'] );
+		$auto_sync     = $this->should_auto_sync_on_page_load( $is_configured );
 		$handle        = 'omega-cody-conversations-admin';
 
 		wp_enqueue_script(
@@ -84,6 +85,7 @@ class Omega_Cody_Admin {
 				'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
 				'syncAjaxNonce' => wp_create_nonce( 'omega_cody_sync_ajax' ),
 				'isConfigured'  => $is_configured,
+				'autoSync'      => $auto_sync,
 				'text'          => array(
 					'syncInProgress'             => __( 'Sync in progress...', 'omega-cody' ),
 					'totalMessagesAddedPrefix'   => __( 'Total Messages added', 'omega-cody' ),
@@ -811,6 +813,35 @@ class Omega_Cody_Admin {
 	 */
 	private function record_last_sync_time() {
 		update_option( OMEGA_CODY_LAST_SYNC_OPTION, current_time( 'mysql', true ), false );
+	}
+
+	/**
+	 * Determine whether an automatic sync should run on conversations page load.
+	 *
+	 * @param bool $is_configured Whether API credentials are configured.
+	 * @return bool
+	 */
+	private function should_auto_sync_on_page_load( $is_configured ) {
+		if ( ! $is_configured ) {
+			return false;
+		}
+
+		$last_sync_gmt = get_option( OMEGA_CODY_LAST_SYNC_OPTION, '' );
+		if ( empty( $last_sync_gmt ) || ! is_string( $last_sync_gmt ) ) {
+			return true;
+		}
+
+		$last_sync_timestamp = strtotime( $last_sync_gmt . ' GMT' );
+		if ( false === $last_sync_timestamp || $last_sync_timestamp <= 0 ) {
+			return true;
+		}
+
+		$now_timestamp = current_time( 'timestamp', true );
+		if ( $last_sync_timestamp > $now_timestamp ) {
+			return false;
+		}
+
+		return ( $now_timestamp - $last_sync_timestamp ) >= WEEK_IN_SECONDS;
 	}
 
 	/**

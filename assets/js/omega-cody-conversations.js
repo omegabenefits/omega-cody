@@ -25,6 +25,7 @@
 	var syncAjaxNonce = 'string' === typeof config.syncAjaxNonce ? config.syncAjaxNonce : '';
 	var ajaxUrl       = 'string' === typeof config.ajaxUrl ? config.ajaxUrl : ( window.ajaxurl || '' );
 	var isConfigured  = Boolean( config.isConfigured );
+	var shouldAutoSync = Boolean( config.autoSync );
 	var pollTimer     = null;
 	var isSyncing     = false;
 
@@ -238,6 +239,47 @@
 					isSyncing = false;
 					setConversationListEnabled( true );
 				}
+				);
+	}
+
+	function startSync() {
+		if ( isSyncing || ! syncForm || ! window.fetch || ! isConfigured ) {
+			return;
+		}
+
+		setTitleVisible( false );
+		setLastSyncVisible( false );
+		setSyncButtonEnabled( false, getText( 'syncingButtonLabel', 'Syncing...' ) );
+		setProgress( 0 );
+		setStatus( getText( 'startingSync', 'Starting sync...' ) );
+		isSyncing = true;
+		setConversationListEnabled( false );
+
+		postSyncAction( 'omega_cody_sync_start' )
+			.then(
+				function( payload ) {
+					if ( ! payload || true !== payload.success || ! payload.data || ! payload.data.state ) {
+						if ( payload && payload.data && payload.data.message ) {
+							throw new Error( payload.data.message );
+						}
+
+						throw new Error( getText( 'unableToStartSync', 'Unable to start sync.' ) );
+					}
+
+					setStatus( buildProgressText( payload.data.state ) );
+					setProgress( buildProgressPercent( payload.data.state ) );
+					startPollingSteps();
+				}
+			)
+			.catch(
+				function( error ) {
+					setStatus( error && error.message ? error.message : getText( 'couldNotStartSync', 'Could not start sync.' ) );
+					setTitleVisible( true );
+					setLastSyncVisible( true );
+					setSyncButtonEnabled( true, getText( 'syncButtonLabel', 'Sync with Cody API' ) );
+					isSyncing = false;
+					setConversationListEnabled( true );
+				}
 			);
 	}
 
@@ -246,40 +288,7 @@
 			'submit',
 			function( event ) {
 				event.preventDefault();
-				setTitleVisible( false );
-				setLastSyncVisible( false );
-				setSyncButtonEnabled( false, getText( 'syncingButtonLabel', 'Syncing...' ) );
-				setProgress( 0 );
-				setStatus( getText( 'startingSync', 'Starting sync...' ) );
-				isSyncing = true;
-				setConversationListEnabled( false );
-
-				postSyncAction( 'omega_cody_sync_start' )
-					.then(
-						function( payload ) {
-							if ( ! payload || true !== payload.success || ! payload.data || ! payload.data.state ) {
-								if ( payload && payload.data && payload.data.message ) {
-									throw new Error( payload.data.message );
-								}
-
-								throw new Error( getText( 'unableToStartSync', 'Unable to start sync.' ) );
-							}
-
-							setStatus( buildProgressText( payload.data.state ) );
-							setProgress( buildProgressPercent( payload.data.state ) );
-							startPollingSteps();
-						}
-					)
-					.catch(
-						function( error ) {
-							setStatus( error && error.message ? error.message : getText( 'couldNotStartSync', 'Could not start sync.' ) );
-							setTitleVisible( true );
-							setLastSyncVisible( true );
-							setSyncButtonEnabled( true, getText( 'syncButtonLabel', 'Sync with Cody API' ) );
-							isSyncing = false;
-							setConversationListEnabled( true );
-						}
-					);
+				startSync();
 			}
 		);
 	}
@@ -347,5 +356,9 @@
 				window.sessionStorage.setItem( storageKey, String( container.scrollTop ) );
 			}
 		);
+	}
+
+	if ( shouldAutoSync ) {
+		window.setTimeout( startSync, 200 );
 	}
 }( window, document ) );
