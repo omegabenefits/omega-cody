@@ -168,12 +168,14 @@ class Omega_Cody_Admin {
 		$options      = omega_cody_get_options();
 		$is_configured = '' !== trim( (string) $options['api_key'] ) && '' !== trim( (string) $options['bot_id'] );
 
-		$current_page = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
-		$per_page     = 20;
-		$total_items  = $this->storage->get_conversation_count();
-		$total_pages  = max( 1, (int) ceil( $total_items / $per_page ) );
+		$total_items    = $this->storage->get_conversation_count();
+		$conversations  = array();
+		$selected_count = max( 20, $total_items );
 
-		$conversations = $this->storage->get_conversations( $current_page, $per_page );
+		if ( $total_items > 0 ) {
+			$conversations = $this->storage->get_conversations( 1, $selected_count );
+		}
+
 		$conversation_id = isset( $_GET['conversation'] ) ? sanitize_text_field( wp_unslash( $_GET['conversation'] ) ) : '';
 		$messages        = array();
 		$selected_conversation = null;
@@ -202,29 +204,29 @@ class Omega_Cody_Admin {
 				<?php submit_button( __( 'Sync from Cody API', 'omega-cody' ), 'primary', 'submit', false, $is_configured ? array() : array( 'disabled' => 'disabled' ) ); ?>
 			</form>
 
-			<table class="widefat striped">
-				<thead>
-					<tr>
-						<th><?php echo esc_html__( 'First User Message', 'omega-cody' ); ?></th>
-						<th><?php echo esc_html__( 'Messages', 'omega-cody' ); ?></th>
-						<th><?php echo esc_html__( 'Created', 'omega-cody' ); ?></th>
-						<th><?php echo esc_html__( 'Synced', 'omega-cody' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php if ( empty( $conversations ) ) : ?>
+			<div id="omega-cody-conversations-scroll" style="max-height: 560px; overflow-y: auto; border: 1px solid #dcdcde; border-radius: 4px;">
+				<table class="widefat striped" style="border: 0;">
+					<thead>
 						<tr>
-							<td colspan="4"><?php echo esc_html__( 'No conversations found yet. Run a sync to fetch data.', 'omega-cody' ); ?></td>
+							<th><?php echo esc_html__( 'First User Message', 'omega-cody' ); ?></th>
+							<th><?php echo esc_html__( 'Messages', 'omega-cody' ); ?></th>
+							<th><?php echo esc_html__( 'Created', 'omega-cody' ); ?></th>
+							<th><?php echo esc_html__( 'Synced', 'omega-cody' ); ?></th>
 						</tr>
-					<?php else : ?>
-						<?php foreach ( $conversations as $conversation ) : ?>
+					</thead>
+					<tbody>
+						<?php if ( empty( $conversations ) ) : ?>
 							<tr>
-								<td>
-									<?php
+								<td colspan="4"><?php echo esc_html__( 'No conversations found yet. Run a sync to fetch data.', 'omega-cody' ); ?></td>
+							</tr>
+						<?php else : ?>
+							<?php foreach ( $conversations as $conversation ) : ?>
+								<tr>
+									<td>
+										<?php
 										$view_url = add_query_arg(
 											array(
 												'page'         => 'omega-cody-conversations',
-												'paged'        => $current_page,
 												'conversation' => $conversation->remote_id,
 											),
 											admin_url( 'admin.php' )
@@ -233,46 +235,49 @@ class Omega_Cody_Admin {
 											isset( $conversation->first_user_message ) ? $conversation->first_user_message : ''
 										);
 										?>
-									<a href="<?php echo esc_url( $view_url ); ?>">
-										<?php echo esc_html( $first_user_message_preview ); ?>
-									</a>
-								</td>
-								<td><?php echo esc_html( absint( $conversation->message_count ) ); ?></td>
-								<td><?php echo esc_html( $this->format_unix_timestamp( $conversation->remote_created_at ) ); ?></td>
-								<td><?php echo esc_html( $this->format_gmt_datetime( $conversation->synced_at_gmt ) ); ?></td>
-							</tr>
-						<?php endforeach; ?>
-					<?php endif; ?>
-				</tbody>
-			</table>
+										<a href="<?php echo esc_url( $view_url ); ?>" data-omega-cody-thread-link="1">
+											<?php echo esc_html( $first_user_message_preview ); ?>
+										</a>
+									</td>
+									<td><?php echo esc_html( absint( $conversation->message_count ) ); ?></td>
+									<td><?php echo esc_html( $this->format_unix_timestamp( $conversation->remote_created_at ) ); ?></td>
+									<td><?php echo esc_html( $this->format_gmt_datetime( $conversation->synced_at_gmt ) ); ?></td>
+								</tr>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					</tbody>
+				</table>
+			</div>
 
-			<?php if ( $total_pages > 1 ) : ?>
-				<div class="tablenav">
-					<div class="tablenav-pages" style="margin: 12px 0;">
-						<?php
-						$page_links = paginate_links(
-							array(
-								'base'      => add_query_arg(
-									array(
-										'page'  => 'omega-cody-conversations',
-										'paged' => '%#%',
-									),
-									admin_url( 'admin.php' )
-								),
-								'format'    => '',
-								'current'   => $current_page,
-								'total'     => $total_pages,
-								'prev_text' => __( '&laquo;', 'omega-cody' ),
-								'next_text' => __( '&raquo;', 'omega-cody' ),
-								'type'      => 'plain',
-							)
-						);
+			<script>
+				(function() {
+					var storageKey = 'omega_cody_conversations_scroll_top';
+					var container = document.getElementById('omega-cody-conversations-scroll');
 
-						echo wp_kses_post( $page_links );
-						?>
-					</div>
-				</div>
-			<?php endif; ?>
+					if (!container) {
+						return;
+					}
+
+					var savedTop = window.sessionStorage.getItem(storageKey);
+					if (savedTop !== null) {
+						var parsedTop = parseInt(savedTop, 10);
+						if (!Number.isNaN(parsedTop)) {
+							container.scrollTop = parsedTop;
+						}
+					}
+
+					container.addEventListener('scroll', function() {
+						window.sessionStorage.setItem(storageKey, String(container.scrollTop));
+					});
+
+					var links = container.querySelectorAll('a[data-omega-cody-thread-link="1"]');
+					for (var i = 0; i < links.length; i++) {
+						links[i].addEventListener('click', function() {
+							window.sessionStorage.setItem(storageKey, String(container.scrollTop));
+						});
+					}
+				}());
+			</script>
 
 			<?php if ( '' !== $conversation_id ) : ?>
 				<hr />
