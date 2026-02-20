@@ -176,9 +176,11 @@ class Omega_Cody_Admin {
 		$conversations = $this->storage->get_conversations( $current_page, $per_page );
 		$conversation_id = isset( $_GET['conversation'] ) ? sanitize_text_field( wp_unslash( $_GET['conversation'] ) ) : '';
 		$messages        = array();
+		$selected_conversation = null;
 
 		if ( '' !== $conversation_id ) {
-			$messages = $this->storage->get_messages_by_conversation( $conversation_id );
+			$messages              = $this->storage->get_messages_by_conversation( $conversation_id );
+			$selected_conversation = $this->storage->get_conversation_by_remote_id( $conversation_id );
 		}
 		?>
 		<div class="wrap">
@@ -276,10 +278,15 @@ class Omega_Cody_Admin {
 				<hr />
 				<h2>
 					<?php
+					$conversation_date_label = __( 'Unknown', 'omega-cody' );
+					if ( ! empty( $selected_conversation ) && isset( $selected_conversation->remote_created_at ) ) {
+						$conversation_date_label = $this->format_unix_timestamp( $selected_conversation->remote_created_at );
+					}
+
 					printf(
-						/* translators: %s: conversation id */
-						esc_html__( 'Conversation: %s', 'omega-cody' ),
-						esc_html( $conversation_id )
+						/* translators: %s: conversation date */
+						esc_html__( 'Conversation Date: %s', 'omega-cody' ),
+						esc_html( $conversation_date_label )
 					);
 					?>
 				</h2>
