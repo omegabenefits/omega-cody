@@ -96,6 +96,27 @@ class Omega_Cody_Storage {
 	}
 
 	/**
+	 * Delete all stored conversation and message rows.
+	 *
+	 * @return bool
+	 */
+	public function reset_all_data() {
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is trusted plugin constant.
+		$messages_deleted = $this->wpdb->query( "DELETE FROM {$this->messages_table}" );
+		if ( false === $messages_deleted ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is trusted plugin constant.
+		$conversations_deleted = $this->wpdb->query( "DELETE FROM {$this->conversations_table}" );
+		if ( false === $conversations_deleted ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
 	 * Insert or update a conversation by remote id.
 	 *
 	 * @param array<string, mixed> $conversation Conversation payload from API.

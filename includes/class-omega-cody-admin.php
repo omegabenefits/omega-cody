@@ -46,6 +46,7 @@ class Omega_Cody_Admin {
 	public function register_hooks() {
 		add_action( 'admin_menu', array( $this, 'register_admin_pages' ) );
 		add_action( 'admin_post_omega_cody_save_settings', array( $this, 'handle_save_settings' ) );
+		add_action( 'admin_post_omega_cody_reset_data', array( $this, 'handle_reset_data' ) );
 		add_action( 'admin_post_omega_cody_sync', array( $this, 'handle_sync' ) );
 	}
 
@@ -104,6 +105,17 @@ class Omega_Cody_Admin {
 					<p><?php echo esc_html__( 'Settings saved.', 'omega-cody' ); ?></p>
 				</div>
 			<?php endif; ?>
+			<?php if ( isset( $_GET['omega_cody_reset'] ) ) : ?>
+				<?php if ( 'success' === sanitize_text_field( wp_unslash( $_GET['omega_cody_reset'] ) ) ) : ?>
+					<div class="notice notice-success is-dismissible">
+						<p><?php echo esc_html__( 'All stored conversations and messages were deleted.', 'omega-cody' ); ?></p>
+					</div>
+				<?php else : ?>
+					<div class="notice notice-error is-dismissible">
+						<p><?php echo esc_html__( 'Could not delete stored data. Please try again.', 'omega-cody' ); ?></p>
+					</div>
+				<?php endif; ?>
+			<?php endif; ?>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="omega_cody_save_settings" />
@@ -150,6 +162,28 @@ class Omega_Cody_Admin {
 				</table>
 
 				<?php submit_button( __( 'Save Settings', 'omega-cody' ) ); ?>
+			</form>
+
+			<hr />
+
+			<h2><?php echo esc_html__( 'Reset Stored Data', 'omega-cody' ); ?></h2>
+			<p>
+				<?php echo esc_html__( 'Deletes all locally stored conversations and messages from the WordPress database. API settings are not changed.', 'omega-cody' ); ?>
+			</p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="omega_cody_reset_data" />
+				<?php wp_nonce_field( 'omega_cody_reset_data' ); ?>
+				<?php
+				submit_button(
+					__( 'Reset Stored Conversations and Messages', 'omega-cody' ),
+					'delete',
+					'submit',
+					false,
+					array(
+						'onclick' => "return confirm('" . esc_js( __( 'Delete all stored conversations and messages? This cannot be undone.', 'omega-cody' ) ) . "');",
+					)
+				);
+				?>
 			</form>
 		</div>
 		<?php
@@ -351,6 +385,32 @@ class Omega_Cody_Admin {
 			array(
 				'page'               => 'omega-cody-settings',
 				'omega_cody_updated' => 1,
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect_url );
+		exit;
+	}
+
+	/**
+	 * Handle reset data action.
+	 *
+	 * @return void
+	 */
+	public function handle_reset_data() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to perform this action.', 'omega-cody' ) );
+		}
+
+		check_admin_referer( 'omega_cody_reset_data' );
+
+		$was_reset = $this->storage->reset_all_data();
+
+		$redirect_url = add_query_arg(
+			array(
+				'page'            => 'omega-cody-settings',
+				'omega_cody_reset' => $was_reset ? 'success' : 'error',
 			),
 			admin_url( 'admin.php' )
 		);
