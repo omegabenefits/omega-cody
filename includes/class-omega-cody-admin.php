@@ -203,9 +203,7 @@ class Omega_Cody_Admin {
 			<table class="widefat striped">
 				<thead>
 					<tr>
-						<th><?php echo esc_html__( 'Name', 'omega-cody' ); ?></th>
-						<th><?php echo esc_html__( 'Conversation ID', 'omega-cody' ); ?></th>
-						<th><?php echo esc_html__( 'Bot ID', 'omega-cody' ); ?></th>
+						<th><?php echo esc_html__( 'First User Message', 'omega-cody' ); ?></th>
 						<th><?php echo esc_html__( 'Messages', 'omega-cody' ); ?></th>
 						<th><?php echo esc_html__( 'Created', 'omega-cody' ); ?></th>
 						<th><?php echo esc_html__( 'Synced', 'omega-cody' ); ?></th>
@@ -214,28 +212,29 @@ class Omega_Cody_Admin {
 				<tbody>
 					<?php if ( empty( $conversations ) ) : ?>
 						<tr>
-							<td colspan="6"><?php echo esc_html__( 'No conversations found yet. Run a sync to fetch data.', 'omega-cody' ); ?></td>
+							<td colspan="4"><?php echo esc_html__( 'No conversations found yet. Run a sync to fetch data.', 'omega-cody' ); ?></td>
 						</tr>
 					<?php else : ?>
 						<?php foreach ( $conversations as $conversation ) : ?>
 							<tr>
 								<td>
 									<?php
-									$view_url = add_query_arg(
-										array(
-											'page'         => 'omega-cody-conversations',
-											'paged'        => $current_page,
-											'conversation' => $conversation->remote_id,
-										),
-										admin_url( 'admin.php' )
-									);
-									?>
+										$view_url = add_query_arg(
+											array(
+												'page'         => 'omega-cody-conversations',
+												'paged'        => $current_page,
+												'conversation' => $conversation->remote_id,
+											),
+											admin_url( 'admin.php' )
+										);
+										$first_user_message_preview = $this->format_message_preview(
+											isset( $conversation->first_user_message ) ? $conversation->first_user_message : ''
+										);
+										?>
 									<a href="<?php echo esc_url( $view_url ); ?>">
-										<?php echo esc_html( '' !== $conversation->name ? $conversation->name : $conversation->remote_id ); ?>
+										<?php echo esc_html( $first_user_message_preview ); ?>
 									</a>
 								</td>
-								<td><?php echo esc_html( $conversation->remote_id ); ?></td>
-								<td><?php echo esc_html( $conversation->bot_id ); ?></td>
 								<td><?php echo esc_html( absint( $conversation->message_count ) ); ?></td>
 								<td><?php echo esc_html( $this->format_unix_timestamp( $conversation->remote_created_at ) ); ?></td>
 								<td><?php echo esc_html( $this->format_gmt_datetime( $conversation->synced_at_gmt ) ); ?></td>
@@ -488,5 +487,20 @@ class Omega_Cody_Admin {
 			get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
 			$local_datetime
 		);
+	}
+
+	/**
+	 * Build a short preview for table display.
+	 *
+	 * @param mixed $message Message content.
+	 * @return string
+	 */
+	private function format_message_preview( $message ) {
+		$clean_message = trim( wp_strip_all_tags( (string) $message ) );
+		if ( '' === $clean_message ) {
+			return __( '(No user message saved)', 'omega-cody' );
+		}
+
+		return wp_html_excerpt( $clean_message, 140, '...' );
 	}
 }

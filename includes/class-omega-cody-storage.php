@@ -303,7 +303,17 @@ class Omega_Cody_Storage {
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names are trusted plugin constants.
 		$query = $this->wpdb->prepare(
-			"SELECT c.*, COALESCE(m.message_count, 0) AS message_count
+			"SELECT
+				c.*,
+				COALESCE(m.message_count, 0) AS message_count,
+				(
+					SELECT um.content
+					FROM {$this->messages_table} um
+					WHERE um.conversation_remote_id = c.remote_id
+						AND um.machine = 0
+					ORDER BY um.remote_created_at ASC, um.id ASC
+					LIMIT 1
+				) AS first_user_message
 			FROM {$this->conversations_table} c
 			LEFT JOIN (
 				SELECT conversation_remote_id, COUNT(id) AS message_count
