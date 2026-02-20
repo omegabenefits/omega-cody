@@ -58,6 +58,7 @@ class Omega_Cody_Plugin {
 	 */
 	public function run() {
 		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
+		add_action( 'init', array( $this, 'maybe_create_storage_tables' ), 5 );
 		$this->admin->register_hooks();
 	}
 
@@ -82,5 +83,14 @@ class Omega_Cody_Plugin {
 			false,
 			dirname( plugin_basename( OMEGA_CODY_PLUGIN_FILE ) ) . '/languages'
 		);
+	}
+
+	/**
+	 * Ensure storage tables exist for current schema naming.
+	 *
+	 * @return void
+	 */
+	public function maybe_create_storage_tables() {
+		$this->storage->maybe_create_tables();
 	}
 }

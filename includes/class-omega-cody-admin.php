@@ -59,8 +59,8 @@ class Omega_Cody_Admin {
 	 */
 	public function register_admin_pages() {
 		add_menu_page(
-			__( 'Cody Threads', 'omega-cody' ),
-			__( 'Cody Threads', 'omega-cody' ),
+			__( 'Chatbot Log', 'omega-cody' ),
+			__( 'Chatbot Log', 'omega-cody' ),
 			'read',
 			'omega-cody-conversations',
 			array( $this, 'render_conversations_page' ),

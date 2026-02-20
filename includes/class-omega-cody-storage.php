@@ -41,8 +41,21 @@ class Omega_Cody_Storage {
 		global $wpdb;
 
 		$this->wpdb                = $wpdb;
-		$this->conversations_table = $wpdb->prefix . 'omega_cody_conversations';
-		$this->messages_table      = $wpdb->prefix . 'omega_cody_messages';
+		$this->conversations_table = $wpdb->prefix . 'chatbot_conversations';
+		$this->messages_table      = $wpdb->prefix . 'chatbot_messages';
+	}
+
+	/**
+	 * Ensure required plugin tables exist.
+	 *
+	 * @return void
+	 */
+	public function maybe_create_tables() {
+		if ( $this->table_exists( $this->conversations_table ) && $this->table_exists( $this->messages_table ) ) {
+			return;
+		}
+
+		$this->create_tables();
 	}
 
 	/**
@@ -93,6 +106,26 @@ class Omega_Cody_Storage {
 
 		dbDelta( $conversations_sql );
 		dbDelta( $messages_sql );
+	}
+
+	/**
+	 * Check if a table exists.
+	 *
+	 * @param string $table_name Full table name.
+	 * @return bool
+	 */
+	private function table_exists( $table_name ) {
+		$clean_table_name = sanitize_text_field( (string) $table_name );
+		if ( '' === $clean_table_name ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query is prepared below.
+		$query = $this->wpdb->prepare( 'SHOW TABLES LIKE %s', $clean_table_name );
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query is prepared above.
+		$result = $this->wpdb->get_var( $query );
+
+		return ! empty( $result );
 	}
 
 	/**
