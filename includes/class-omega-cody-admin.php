@@ -223,7 +223,17 @@ class Omega_Cody_Admin {
 		}
 		?>
 		<div class="wrap">
-			<h1><?php echo esc_html__( 'Cody Conversation Threads', 'omega-cody' ); ?></h1>
+			<h1>
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %d: total saved conversations */
+						_n( '%d Conversation Thread', '%d Conversation Threads', $total_items, 'omega-cody' ),
+						$total_items
+					)
+				);
+				?>
+			</h1>
 
 			<?php $this->render_sync_notice(); ?>
 
@@ -264,6 +274,19 @@ class Omega_Cody_Admin {
 			</div>
 
 			<div id="omega-cody-conversations-scroll" style="max-height: 560px; overflow-y: auto; border: 1px solid #dcdcde; border-radius: 4px;">
+				<style>
+					#omega-cody-conversations-scroll .omega-cody-thread-row {
+						cursor: pointer;
+					}
+
+					#omega-cody-conversations-scroll .omega-cody-thread-row:hover td {
+						background-color: #dcdcde;
+					}
+
+					#omega-cody-conversations-scroll .omega-cody-thread-row--active td {
+						background-color: #c5d9ed;
+					}
+				</style>
 				<table class="widefat striped" style="border: 0;">
 					<thead>
 						<tr>
@@ -279,23 +302,31 @@ class Omega_Cody_Admin {
 							</tr>
 						<?php else : ?>
 							<?php foreach ( $conversations as $conversation ) : ?>
-								<tr>
+								<?php
+								$view_url = add_query_arg(
+									array(
+										'page'         => 'omega-cody-conversations',
+										'conversation' => $conversation->remote_id,
+									),
+									admin_url( 'admin.php' )
+								);
+								$first_user_message_preview = $this->format_message_preview(
+									isset( $conversation->first_user_message ) ? $conversation->first_user_message : ''
+								);
+								$row_classes = 'omega-cody-thread-row';
+								if ( $conversation->remote_id === $conversation_id ) {
+									$row_classes .= ' omega-cody-thread-row--active';
+								}
+								?>
+									<tr
+										class="<?php echo esc_attr( $row_classes ); ?>"
+									data-omega-cody-thread-url="<?php echo esc_url( $view_url ); ?>"
+									tabindex="0"
+									role="link"
+									aria-label="<?php echo esc_attr( $first_user_message_preview ); ?>"
+								>
 									<td>
-										<?php
-										$view_url = add_query_arg(
-											array(
-												'page'         => 'omega-cody-conversations',
-												'conversation' => $conversation->remote_id,
-											),
-											admin_url( 'admin.php' )
-										);
-										$first_user_message_preview = $this->format_message_preview(
-											isset( $conversation->first_user_message ) ? $conversation->first_user_message : ''
-										);
-										?>
-										<a href="<?php echo esc_url( $view_url ); ?>" data-omega-cody-thread-link="1">
-											<?php echo esc_html( $first_user_message_preview ); ?>
-										</a>
+										<?php echo esc_html( $first_user_message_preview ); ?>
 									</td>
 									<td><?php echo esc_html( absint( $conversation->message_count ) ); ?></td>
 									<td><?php echo esc_html( $this->format_unix_timestamp( $conversation->remote_created_at ) ); ?></td>
@@ -509,9 +540,36 @@ class Omega_Cody_Admin {
 						window.sessionStorage.setItem(storageKey, String(container.scrollTop));
 					});
 
-					var links = container.querySelectorAll('a[data-omega-cody-thread-link="1"]');
-					for (var i = 0; i < links.length; i++) {
-						links[i].addEventListener('click', function() {
+					var rows = container.querySelectorAll('tr[data-omega-cody-thread-url]');
+					function goToRow(rowElement) {
+						if (!rowElement) {
+							return;
+						}
+
+						var destination = rowElement.getAttribute('data-omega-cody-thread-url');
+						if (!destination) {
+							return;
+						}
+
+						window.sessionStorage.setItem(storageKey, String(container.scrollTop));
+						window.location.href = destination;
+					}
+
+					for (var i = 0; i < rows.length; i++) {
+						rows[i].addEventListener('click', function() {
+							goToRow(this);
+						});
+
+						rows[i].addEventListener('keydown', function(event) {
+							if (event.key !== 'Enter' && event.key !== ' ') {
+								return;
+							}
+
+							event.preventDefault();
+							goToRow(this);
+						});
+
+						rows[i].addEventListener('mousedown', function() {
 							window.sessionStorage.setItem(storageKey, String(container.scrollTop));
 						});
 					}
@@ -526,12 +584,7 @@ class Omega_Cody_Admin {
 					if ( ! empty( $selected_conversation ) && isset( $selected_conversation->remote_created_at ) ) {
 						$conversation_date_label = $this->format_unix_timestamp( $selected_conversation->remote_created_at );
 					}
-
-					printf(
-						/* translators: %s: conversation date */
-						esc_html__( 'Conversation Date: %s', 'omega-cody' ),
-						esc_html( $conversation_date_label )
-					);
+					echo esc_html( $conversation_date_label );
 					?>
 				</h2>
 
