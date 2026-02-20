@@ -26,6 +26,7 @@
 	var ajaxUrl       = 'string' === typeof config.ajaxUrl ? config.ajaxUrl : ( window.ajaxurl || '' );
 	var isConfigured  = Boolean( config.isConfigured );
 	var pollTimer     = null;
+	var isSyncing     = false;
 
 	function setStatus( value ) {
 		if ( ! statusWrap || ! statusText ) {
@@ -50,6 +51,15 @@
 		}
 
 		lastSyncLine.style.display = isVisible ? '' : 'none';
+	}
+
+	function setConversationListEnabled( enabled ) {
+		if ( ! container ) {
+			return;
+		}
+
+		container.style.pointerEvents = enabled ? '' : 'none';
+		container.style.opacity       = enabled ? '' : '0.65';
 	}
 
 	function setProgress( percent ) {
@@ -215,6 +225,8 @@
 					setTitleVisible( true );
 					setLastSyncVisible( true );
 					setSyncButtonEnabled( true, getText( 'syncButtonLabel', 'Sync with Cody API' ) );
+					isSyncing = false;
+					setConversationListEnabled( true );
 				}
 			)
 			.catch(
@@ -223,6 +235,8 @@
 					setTitleVisible( true );
 					setLastSyncVisible( true );
 					setSyncButtonEnabled( true, getText( 'syncButtonLabel', 'Sync with Cody API' ) );
+					isSyncing = false;
+					setConversationListEnabled( true );
 				}
 			);
 	}
@@ -237,6 +251,8 @@
 				setSyncButtonEnabled( false, getText( 'syncingButtonLabel', 'Syncing...' ) );
 				setProgress( 0 );
 				setStatus( getText( 'startingSync', 'Starting sync...' ) );
+				isSyncing = true;
+				setConversationListEnabled( false );
 
 				postSyncAction( 'omega_cody_sync_start' )
 					.then(
@@ -260,6 +276,8 @@
 							setTitleVisible( true );
 							setLastSyncVisible( true );
 							setSyncButtonEnabled( true, getText( 'syncButtonLabel', 'Sync with Cody API' ) );
+							isSyncing = false;
+							setConversationListEnabled( true );
 						}
 					);
 			}
@@ -290,7 +308,7 @@
 	function goToRow( rowElement ) {
 		var destination;
 
-		if ( ! rowElement ) {
+		if ( ! rowElement || isSyncing ) {
 			return;
 		}
 
