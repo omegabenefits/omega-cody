@@ -211,13 +211,12 @@ class Omega_Cody_Admin {
 							<th><?php echo esc_html__( 'First User Message', 'omega-cody' ); ?></th>
 							<th><?php echo esc_html__( 'Messages', 'omega-cody' ); ?></th>
 							<th><?php echo esc_html__( 'Created', 'omega-cody' ); ?></th>
-							<th><?php echo esc_html__( 'Synced', 'omega-cody' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
 						<?php if ( empty( $conversations ) ) : ?>
 							<tr>
-								<td colspan="4"><?php echo esc_html__( 'No conversations found yet. Run a sync to fetch data.', 'omega-cody' ); ?></td>
+								<td colspan="3"><?php echo esc_html__( 'No conversations found yet. Run a sync to fetch data.', 'omega-cody' ); ?></td>
 							</tr>
 						<?php else : ?>
 							<?php foreach ( $conversations as $conversation ) : ?>
@@ -241,7 +240,6 @@ class Omega_Cody_Admin {
 									</td>
 									<td><?php echo esc_html( absint( $conversation->message_count ) ); ?></td>
 									<td><?php echo esc_html( $this->format_unix_timestamp( $conversation->remote_created_at ) ); ?></td>
-									<td><?php echo esc_html( $this->format_gmt_datetime( $conversation->synced_at_gmt ) ); ?></td>
 								</tr>
 							<?php endforeach; ?>
 						<?php endif; ?>
