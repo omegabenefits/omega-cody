@@ -335,7 +335,7 @@ class Omega_Cody_Sync_Service {
 		$state['current_message_conversation_number'] = 1;
 		$state['progress_message']        = sprintf(
 			/* translators: 1: current conversation position, 2: total conversations in message phase */
-			__( 'Importing messages for conversation %1$d of %2$d...', 'omega-cody' ),
+			__( 'Importing messages for conversation %1$d of %2$d ...', 'omega-cody' ),
 			$state['current_message_conversation_number'],
 			$state['total_message_conversations']
 		);
@@ -412,7 +412,7 @@ class Omega_Cody_Sync_Service {
 			$state['current_messages_page'] = $next_message_page;
 			$state['progress_message']      = sprintf(
 				/* translators: 1: current conversation position, 2: total conversations in message phase, 3: page number */
-				__( 'Syncing messages for conversation %1$d of %2$d (page %3$d)...', 'omega-cody' ),
+				__( 'Syncing messages for conversation %1$d of %2$d (page %3$d) ...', 'omega-cody' ),
 				$state['current_message_conversation_number'],
 				$state['total_message_conversations'],
 				$next_message_page
@@ -439,7 +439,7 @@ class Omega_Cody_Sync_Service {
 		++$state['current_message_conversation_number'];
 		$state['progress_message']        = sprintf(
 			/* translators: 1: current conversation position, 2: total conversations in message phase */
-			__( 'Importing messages for conversation %1$d of %2$d...', 'omega-cody' ),
+			__( 'Importing messages for conversation %1$d of %2$d ...', 'omega-cody' ),
 			$state['current_message_conversation_number'],
 			$state['total_message_conversations']
 		);
