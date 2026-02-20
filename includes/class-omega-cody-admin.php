@@ -404,7 +404,7 @@ class Omega_Cody_Admin {
 						}
 
 						#omega-cody-conversations-scroll .omega-cody-thread-row--active td {
-							background-color: #ebe8ca;
+							background-color: #f5f3e2;
 						}
 					</style>
 				<table class="widefat striped" style="border: 0;">
@@ -458,8 +458,8 @@ class Omega_Cody_Admin {
 			</div>
 
 				<?php if ( '' !== $conversation_id ) : ?>
-				<hr />
-				<h2>
+					<hr />
+					<h2>
 					<?php
 					$conversation_date_label = __( 'Unknown', 'omega-cody' );
 					if ( ! empty( $selected_conversation ) && isset( $selected_conversation->remote_created_at ) ) {
@@ -467,15 +467,21 @@ class Omega_Cody_Admin {
 					}
 					echo esc_html( $conversation_date_label );
 					?>
-				</h2>
+					</h2>
 
-				<?php if ( empty( $messages ) ) : ?>
-					<p><?php echo esc_html__( 'No messages stored for this conversation yet.', 'omega-cody' ); ?></p>
-				<?php else : ?>
-					<div>
-						<?php foreach ( $messages as $message ) : ?>
-							<?php $is_machine = ! empty( $message->machine ); ?>
-							<div style="border: 1px solid #dcdcde; border-radius: 4px; padding: 12px; margin: 12px 0; background: <?php echo esc_attr( $is_machine ? '#ffffff' : '#f5f3e2' ); ?>;">
+					<?php
+					$messages_to_render = $messages;
+					if ( ! empty( $messages_to_render ) ) {
+						array_shift( $messages_to_render );
+					}
+					?>
+					<?php if ( empty( $messages_to_render ) ) : ?>
+						<p><?php echo esc_html__( 'No messages stored for this conversation yet.', 'omega-cody' ); ?></p>
+					<?php else : ?>
+						<div>
+							<?php foreach ( $messages_to_render as $message ) : ?>
+								<?php $is_machine = ! empty( $message->machine ); ?>
+								<div style="border: 1px solid #dcdcde; border-radius: 4px; padding: 12px; margin: 12px 0; background: <?php echo esc_attr( $is_machine ? '#ffffff' : '#f5f3e2' ); ?>;">
 								<p style="margin-top: 0;">
 									<strong>
 										<?php if ( $is_machine ) : ?>
