@@ -103,6 +103,8 @@ class Omega_Cody_Admin {
 					'startingSync'               => __( 'Starting sync...', 'omega-cody' ),
 					'unableToStartSync'          => __( 'Unable to start sync.', 'omega-cody' ),
 					'couldNotStartSync'          => __( 'Could not start sync.', 'omega-cody' ),
+					'threadCopied'               => __( 'Thread copied.', 'omega-cody' ),
+					'threadCopyFailed'           => __( 'Could not copy thread.', 'omega-cody' ),
 				),
 			)
 		);
@@ -464,15 +466,32 @@ class Omega_Cody_Admin {
 
 				<?php if ( '' !== $conversation_id ) : ?>
 					<hr />
-					<h2>
 					<?php
 					$conversation_date_label = __( 'Unknown', 'omega-cody' );
 					if ( ! empty( $selected_conversation ) && isset( $selected_conversation->remote_created_at ) ) {
 						$conversation_date_label = $this->format_unix_timestamp( $selected_conversation->remote_created_at );
 					}
-					echo esc_html( $conversation_date_label );
+					$copy_thread_text = $this->build_conversation_copy_text( $conversation_date_label, $messages );
 					?>
-					</h2>
+					<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 1em 0;">
+						<h2 style="margin: 0;"><?php echo esc_html( $conversation_date_label ); ?></h2>
+						<button
+							type="button"
+							class="button button-primary"
+							id="omega-cody-copy-thread"
+							style="background: #2370b1; border-color: #2370b1; color: #ffffff; margin-left: 12px;"
+						>
+							<?php echo esc_html__( 'copy to clipboard', 'omega-cody' ); ?>
+						</button>
+						<span id="omega-cody-copy-thread-status" aria-live="polite" style="color: #646970;"></span>
+					</div>
+					<textarea
+						id="omega-cody-copy-thread-source"
+						readonly="readonly"
+						tabindex="-1"
+						aria-hidden="true"
+						style="position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; opacity: 0;"
+					><?php echo esc_textarea( $copy_thread_text ); ?></textarea>
 
 					<?php
 					$messages_to_render = $messages;
@@ -952,6 +971,69 @@ class Omega_Cody_Admin {
 		$linked     = make_clickable( $plain_text );
 
 		return wpautop( $linked );
+	}
+
+	/**
+	 * Build a plain-text transcript for copying a selected conversation.
+	 *
+	 * @param string            $conversation_date_label Conversation date label.
+	 * @param array<int,object> $messages                Conversation messages.
+	 * @return string
+	 */
+	private function build_conversation_copy_text( $conversation_date_label, array $messages ) {
+		$lines = array(
+			sprintf(
+				/* translators: %s: conversation date */
+				__( 'Conversation: %s', 'omega-cody' ),
+				(string) $conversation_date_label
+			),
+		);
+
+		if ( ! empty( $messages ) ) {
+			array_shift( $messages );
+		}
+
+		foreach ( $messages as $message ) {
+			$is_machine = ! empty( $message->machine );
+			$label      = $is_machine ? __( 'Chatbot', 'omega-cody' ) : __( 'User', 'omega-cody' );
+			$flags      = array();
+
+			if ( ! empty( $message->failed_responding ) ) {
+				$flags[] = __( 'Failed response', 'omega-cody' );
+			}
+			if ( ! empty( $message->flagged ) ) {
+				$flags[] = __( 'Flagged', 'omega-cody' );
+			}
+
+			$header = $label;
+			if ( ! empty( $flags ) ) {
+				$header .= ' (' . implode( ', ', $flags ) . ')';
+			}
+
+			$content = $this->format_message_content_text( isset( $message->content ) ? $message->content : '' );
+
+			$lines[] = '';
+			$lines[] = $header;
+			$lines[] = str_repeat( '-', strlen( $header ) );
+			if ( '' !== $content ) {
+				$lines[] = $content;
+			}
+		}
+
+		return trim( implode( "\n", $lines ) );
+	}
+
+	/**
+	 * Format message content for a plain-text copied transcript.
+	 *
+	 * @param mixed $message Message content.
+	 * @return string
+	 */
+	private function format_message_content_text( $message ) {
+		$content = html_entity_decode( wp_strip_all_tags( (string) $message ), ENT_QUOTES, get_bloginfo( 'charset' ) );
+		$content = str_replace( array( "\r\n", "\r" ), "\n", $content );
+
+		return trim( $content );
 	}
 
 	/**

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OMEGA Chatbot Logs
  * Description: Retrieve, store, and display CodyAI chatbot conversation threads in WordPress admin.
- * Version: 1.0
+ * Version: 1.1
  * Author: Omega Benefits
  * Text Domain: omega-cody
  *
