@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OMEGA Chatbot Logs
  * Description: Retrieve, store, and display CodyAI chatbot conversation threads in WordPress admin.
- * Version: 1.1
+ * Version: 1.2
  * Author: Omega Benefits
  * Text Domain: omega-cody
  *
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'OMEGA_CODY_VERSION', '1.1.0' );
+define( 'OMEGA_CODY_VERSION', '1.2' );
 define( 'OMEGA_CODY_PLUGIN_FILE', __FILE__ );
 define( 'OMEGA_CODY_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'OMEGA_CODY_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
