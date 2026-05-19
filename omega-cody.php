@@ -34,9 +34,10 @@ require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-plugin.php';
  */
 function omega_cody_get_options() {
 	$defaults = array(
-		'api_key' => '',
-		'bot_id'  => '',
-		'bot_name' => '',
+		'api_key'   => '',
+		'bot_id'    => '',
+		'bot_name'  => '',
+		'widget_id' => '',
 	);
 
 	$options = get_option( OMEGA_CODY_OPTION_NAME, array() );

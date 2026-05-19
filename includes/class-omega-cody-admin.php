@@ -239,6 +239,23 @@ class Omega_Cody_Admin {
 						</tr>
 						<tr>
 							<th scope="row">
+								<label for="omega_cody_widget_id"><?php echo esc_html__( 'Widget ID', 'omega-cody' ); ?></label>
+							</th>
+							<td>
+								<input
+									name="omega_cody_widget_id"
+									type="text"
+									id="omega_cody_widget_id"
+									value="<?php echo esc_attr( $options['widget_id'] ); ?>"
+									class="regular-text"
+								/>
+								<p class="description">
+									<?php echo esc_html__( "From the script embed: window.codySettings = { widget_id: 'xxxxxx' }", 'omega-cody' ); ?>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
 								<label for="omega_cody_bot_name"><?php echo esc_html__( 'Bot Name', 'omega-cody' ); ?></label>
 							</th>
 							<td>
@@ -547,9 +564,10 @@ class Omega_Cody_Admin {
 
 		check_admin_referer( 'omega_cody_save_settings' );
 
-		$api_key = isset( $_POST['omega_cody_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['omega_cody_api_key'] ) ) : '';
-		$bot_id  = isset( $_POST['omega_cody_bot_id'] ) ? sanitize_text_field( wp_unslash( $_POST['omega_cody_bot_id'] ) ) : '';
-		$bot_name = '';
+		$api_key       = isset( $_POST['omega_cody_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['omega_cody_api_key'] ) ) : '';
+		$bot_id        = isset( $_POST['omega_cody_bot_id'] ) ? sanitize_text_field( wp_unslash( $_POST['omega_cody_bot_id'] ) ) : '';
+		$widget_id     = isset( $_POST['omega_cody_widget_id'] ) ? sanitize_text_field( wp_unslash( $_POST['omega_cody_widget_id'] ) ) : '';
+		$bot_name      = '';
 		$was_validated = false;
 
 		if ( '' !== $api_key || '' !== $bot_id ) {
@@ -573,9 +591,10 @@ class Omega_Cody_Admin {
 		update_option(
 			OMEGA_CODY_OPTION_NAME,
 			array(
-				'api_key' => $api_key,
-				'bot_id'  => $bot_id,
-				'bot_name' => $bot_name,
+				'api_key'   => $api_key,
+				'bot_id'    => $bot_id,
+				'bot_name'  => $bot_name,
+				'widget_id' => $widget_id,
 			),
 			false
 		);

@@ -59,7 +59,32 @@ class Omega_Cody_Plugin {
 	public function run() {
 		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
 		add_action( 'init', array( $this, 'maybe_create_storage_tables' ), 5 );
+		add_action( 'wp_footer', array( $this, 'render_widget_script' ) );
 		$this->admin->register_hooks();
+	}
+
+	/**
+	 * Render Cody widget embed script on the front end.
+	 *
+	 * @return void
+	 */
+	public function render_widget_script() {
+		if ( is_admin() ) {
+			return;
+		}
+
+		$options   = omega_cody_get_options();
+		$widget_id = trim( (string) $options['widget_id'] );
+		if ( '' === $widget_id ) {
+			return;
+		}
+		?>
+		<script>
+		window.codySettings = { widget_id: <?php echo wp_json_encode( $widget_id ); ?> };
+
+		!function(){var t=window,e=document,a=function(){var t=e.createElement("script");t.type="text/javascript",t.async=!0,t.src="https://trinketsofcody.com/cody-widget.js";var a=e.getElementsByTagName("script")[0];a.parentNode.insertBefore(t,a)};"complete"===document.readyState?a():t.attachEvent?t.attachEvent("onload",a):t.addEventListener("load",a,!1)}();
+		</script>
+		<?php
 	}
 
 	/**
