@@ -58,17 +58,17 @@ class Omega_Cody_Plugin {
 	 */
 	public function run() {
 		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
-		add_action( 'init', array( $this, 'maybe_create_storage_tables' ), 5 );
-		add_action( 'wp_footer', array( $this, 'render_widget_script' ) );
+		add_action( 'init', array( $this, 'maybe_upgrade_storage_schema' ), 5 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_widget_script' ) );
 		$this->admin->register_hooks();
 	}
 
 	/**
-	 * Render Cody widget embed script on the front end.
+	 * Enqueue Cody widget embed script on the front end.
 	 *
 	 * @return void
 	 */
-	public function render_widget_script() {
+	public function enqueue_widget_script() {
 		if ( is_admin() ) {
 			return;
 		}
@@ -78,13 +78,20 @@ class Omega_Cody_Plugin {
 		if ( '' === $widget_id ) {
 			return;
 		}
-		?>
-		<script>
-		window.codySettings = { widget_id: <?php echo wp_json_encode( $widget_id ); ?> };
 
-		!function(){var t=window,e=document,a=function(){var t=e.createElement("script");t.type="text/javascript",t.async=!0,t.src="https://trinketsofcody.com/cody-widget.js";var a=e.getElementsByTagName("script")[0];a.parentNode.insertBefore(t,a)};"complete"===document.readyState?a():t.attachEvent?t.attachEvent("onload",a):t.addEventListener("load",a,!1)}();
-		</script>
-		<?php
+		$handle = 'omega-cody-widget';
+		wp_enqueue_script(
+			$handle,
+			'https://trinketsofcody.com/cody-widget.js',
+			array(),
+			null,
+			true
+		);
+		wp_add_inline_script(
+			$handle,
+			'window.codySettings = { widget_id: ' . wp_json_encode( $widget_id ) . ' };',
+			'before'
+		);
 	}
 
 	/**
@@ -95,6 +102,7 @@ class Omega_Cody_Plugin {
 	public static function activate() {
 		$storage = new Omega_Cody_Storage();
 		$storage->create_tables();
+		update_option( OMEGA_CODY_SCHEMA_VERSION_OPTION, OMEGA_CODY_SCHEMA_VERSION, false );
 	}
 
 	/**
@@ -111,11 +119,16 @@ class Omega_Cody_Plugin {
 	}
 
 	/**
-	 * Ensure storage tables exist for current schema naming.
+	 * Upgrade storage schema when the stored schema version changes.
 	 *
 	 * @return void
 	 */
-	public function maybe_create_storage_tables() {
-		$this->storage->maybe_create_tables();
+	public function maybe_upgrade_storage_schema() {
+		if ( OMEGA_CODY_SCHEMA_VERSION === get_option( OMEGA_CODY_SCHEMA_VERSION_OPTION, '' ) ) {
+			return;
+		}
+
+		$this->storage->create_tables();
+		update_option( OMEGA_CODY_SCHEMA_VERSION_OPTION, OMEGA_CODY_SCHEMA_VERSION, false );
 	}
 }

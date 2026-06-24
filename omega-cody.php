@@ -20,6 +20,8 @@ define( 'OMEGA_CODY_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'OMEGA_CODY_OPTION_NAME', 'omega_cody_options' );
 define( 'OMEGA_CODY_SYNC_STATE_OPTION', 'omega_cody_sync_state' );
 define( 'OMEGA_CODY_LAST_SYNC_OPTION', 'omega_cody_last_sync_gmt' );
+define( 'OMEGA_CODY_SCHEMA_VERSION_OPTION', 'omega_cody_schema_version' );
+define( 'OMEGA_CODY_SCHEMA_VERSION', '1' );
 
 require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-storage.php';
 require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-api-client.php';

@@ -318,12 +318,29 @@ class Omega_Cody_Admin {
 		$last_sync_gmt   = get_option( OMEGA_CODY_LAST_SYNC_OPTION, '' );
 		$last_sync_label = $this->format_time_ago_from_gmt( $last_sync_gmt );
 
-		$total_items    = $this->storage->get_conversation_count();
-		$conversations  = array();
-		$selected_count = max( 20, $total_items );
+		$total_items  = $this->storage->get_conversation_count();
+		$per_page     = 20;
+		$total_pages  = max( 1, (int) ceil( $total_items / $per_page ) );
+		$current_page = isset( $_GET['paged'] ) ? max( 1, absint( wp_unslash( $_GET['paged'] ) ) ) : 1;
+		$current_page = min( $current_page, $total_pages );
+		$conversations = array();
 
 		if ( $total_items > 0 ) {
-			$conversations = $this->storage->get_conversations( 1, $selected_count );
+			$conversations = $this->storage->get_conversations( $current_page, $per_page );
+		}
+
+		$pagination_links = '';
+		if ( $total_pages > 1 ) {
+			$pagination_links = paginate_links(
+				array(
+					'base'      => admin_url( 'admin.php?page=omega-cody-conversations&paged=%#%' ),
+					'format'    => '',
+					'current'   => $current_page,
+					'total'     => $total_pages,
+					'prev_text' => __( 'Previous', 'omega-cody' ),
+					'next_text' => __( 'Next', 'omega-cody' ),
+				)
+			);
 		}
 
 		$conversation_id = isset( $_GET['conversation'] ) ? sanitize_text_field( wp_unslash( $_GET['conversation'] ) ) : '';
@@ -450,6 +467,7 @@ class Omega_Cody_Admin {
 								$view_url = add_query_arg(
 									array(
 										'page'         => 'omega-cody-conversations',
+										'paged'        => $current_page,
 										'conversation' => $conversation->remote_id,
 									),
 									admin_url( 'admin.php' )
@@ -480,6 +498,23 @@ class Omega_Cody_Admin {
 					</tbody>
 				</table>
 			</div>
+			<?php if ( '' !== $pagination_links ) : ?>
+				<div class="tablenav bottom">
+					<div class="tablenav-pages">
+						<span class="displaying-num">
+							<?php
+							printf(
+								/* translators: 1: current page, 2: total pages */
+								esc_html__( 'Page %1$d of %2$d', 'omega-cody' ),
+								absint( $current_page ),
+								absint( $total_pages )
+							);
+							?>
+						</span>
+						<?php echo wp_kses_post( $pagination_links ); ?>
+					</div>
+				</div>
+			<?php endif; ?>
 
 				<?php if ( '' !== $conversation_id ) : ?>
 					<hr />
