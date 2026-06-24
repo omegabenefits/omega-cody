@@ -27,6 +27,7 @@ require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-storage.php';
 require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-api-client.php';
 require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-sync-service.php';
 require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-admin.php';
+require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-updater.php';
 require_once OMEGA_CODY_PLUGIN_DIR . 'includes/class-omega-cody-plugin.php';
 
 /**

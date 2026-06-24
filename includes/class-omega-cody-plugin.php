@@ -42,6 +42,13 @@ class Omega_Cody_Plugin {
 	private $admin;
 
 	/**
+	 * Self-hosted update checker.
+	 *
+	 * @var Omega_Cody_Updater|null
+	 */
+	private $updater;
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
@@ -61,6 +68,11 @@ class Omega_Cody_Plugin {
 		add_action( 'init', array( $this, 'maybe_upgrade_storage_schema' ), 5 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_widget_script' ) );
 		$this->admin->register_hooks();
+
+		if ( is_admin() || ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
+			$this->updater = new Omega_Cody_Updater();
+			$this->updater->init();
+		}
 	}
 
 	/**
