@@ -48,7 +48,7 @@ class Omega_Cody_Plugin {
 		$this->storage      = new Omega_Cody_Storage();
 		$this->api_client   = new Omega_Cody_API_Client();
 		$this->sync_service = new Omega_Cody_Sync_Service( $this->api_client, $this->storage );
-		$this->admin        = new Omega_Cody_Admin( $this->storage, $this->sync_service );
+		$this->admin        = new Omega_Cody_Admin( $this->storage, $this->sync_service, $this->api_client );
 	}
 
 	/**

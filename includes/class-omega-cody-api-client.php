@@ -221,7 +221,7 @@ class Omega_Cody_API_Client {
 	 * @param array<string, mixed> $response API response.
 	 * @return array<int, mixed>
 	 */
-	private function extract_data( array $response ) {
+	public function extract_data( array $response ) {
 		if ( ! isset( $response['data'] ) || ! is_array( $response['data'] ) ) {
 			return array();
 		}
@@ -238,7 +238,7 @@ class Omega_Cody_API_Client {
 	 * @param int                  $per_page      Requested rows per page.
 	 * @return int
 	 */
-	private function extract_next_page( array $response, $current_page, $fetched_count, $per_page ) {
+	public function extract_next_page( array $response, $current_page, $fetched_count, $per_page ) {
 		$clean_current_page = max( 1, absint( $current_page ) );
 		$clean_per_page     = max( 1, absint( $per_page ) );
 

@@ -12,7 +12,6 @@
 		return fallback;
 	}
 
-	var storageKey = 'omega_cody_conversations_scroll_top';
 	var syncForm = document.getElementById('omega-cody-sync-form');
 	var syncButton = document.getElementById('omega_cody_sync_submit');
 	var statusWrap = document.getElementById('omega-cody-sync-progress');
@@ -207,32 +206,6 @@
 		setCopyThreadStatus(getText('threadCopyFailed', 'Could not copy thread!'));
 	}
 
-	function fallbackCopyThreadText() {
-		var activeElement;
-		var wasCopied = false;
-
-		if (!copyThreadSource) {
-			return false;
-		}
-
-		activeElement = document.activeElement;
-		copyThreadSource.focus();
-		copyThreadSource.select();
-		copyThreadSource.setSelectionRange(0, copyThreadSource.value.length);
-
-		try {
-			wasCopied = document.execCommand('copy');
-		} catch (error) {
-			wasCopied = false;
-		}
-
-		if (activeElement && 'function' === typeof activeElement.focus) {
-			activeElement.focus();
-		}
-
-		return wasCopied;
-	}
-
 	function copyThreadToClipboard() {
 		var transcript;
 
@@ -251,21 +224,7 @@
 		if (window.navigator && window.navigator.clipboard && window.navigator.clipboard.writeText) {
 			window.navigator.clipboard.writeText(transcript)
 				.then(markCopyThreadSuccess)
-				.catch(
-					function() {
-						if (fallbackCopyThreadText()) {
-							markCopyThreadSuccess();
-							return;
-						}
-
-						markCopyThreadFailure();
-					}
-				);
-			return;
-		}
-
-		if (fallbackCopyThreadText()) {
-			markCopyThreadSuccess();
+				.catch(markCopyThreadFailure);
 			return;
 		}
 
@@ -396,21 +355,6 @@
 		return;
 	}
 
-	var savedTop = window.sessionStorage.getItem(storageKey);
-	if (null !== savedTop) {
-		var parsedTop = parseInt(savedTop, 10);
-		if (!Number.isNaN(parsedTop)) {
-			container.scrollTop = parsedTop;
-		}
-	}
-
-	container.addEventListener(
-		'scroll',
-		function() {
-			window.sessionStorage.setItem(storageKey, String(container.scrollTop));
-		}
-	);
-
 	var rows = container.querySelectorAll('tr[data-omega-cody-thread-url]');
 
 	function goToRow(rowElement) {
@@ -425,7 +369,6 @@
 			return;
 		}
 
-		window.sessionStorage.setItem(storageKey, String(container.scrollTop));
 		window.location.href = destination;
 	}
 
@@ -446,13 +389,6 @@
 
 				event.preventDefault();
 				goToRow(this);
-			}
-		);
-
-		rows[i].addEventListener(
-			'mousedown',
-			function() {
-				window.sessionStorage.setItem(storageKey, String(container.scrollTop));
 			}
 		);
 	}

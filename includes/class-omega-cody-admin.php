@@ -28,14 +28,23 @@ class Omega_Cody_Admin {
 	private $sync_service;
 
 	/**
+	 * API service.
+	 *
+	 * @var Omega_Cody_API_Client
+	 */
+	private $api_client;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param Omega_Cody_Storage      $storage      Storage service.
 	 * @param Omega_Cody_Sync_Service $sync_service Sync service.
+	 * @param Omega_Cody_API_Client   $api_client   API service.
 	 */
-	public function __construct( Omega_Cody_Storage $storage, Omega_Cody_Sync_Service $sync_service ) {
+	public function __construct( Omega_Cody_Storage $storage, Omega_Cody_Sync_Service $sync_service, Omega_Cody_API_Client $api_client ) {
 		$this->storage      = $storage;
 		$this->sync_service = $sync_service;
+		$this->api_client   = $api_client;
 	}
 
 	/**
@@ -48,7 +57,6 @@ class Omega_Cody_Admin {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_post_omega_cody_save_settings', array( $this, 'handle_save_settings' ) );
 		add_action( 'admin_post_omega_cody_reset_data', array( $this, 'handle_reset_data' ) );
-		add_action( 'admin_post_omega_cody_sync', array( $this, 'handle_sync' ) );
 		add_action( 'wp_ajax_omega_cody_sync_start', array( $this, 'ajax_sync_start' ) );
 		add_action( 'wp_ajax_omega_cody_sync_step', array( $this, 'ajax_sync_step' ) );
 	}
@@ -319,11 +327,13 @@ class Omega_Cody_Admin {
 		$last_sync_label = $this->format_time_ago_from_gmt( $last_sync_gmt );
 
 		$total_items  = $this->storage->get_conversation_count();
-		$per_page     = 20;
+		$per_page     = 100;
 		$total_pages  = max( 1, (int) ceil( $total_items / $per_page ) );
 		$current_page = isset( $_GET['paged'] ) ? max( 1, absint( wp_unslash( $_GET['paged'] ) ) ) : 1;
 		$current_page = min( $current_page, $total_pages );
 		$conversations = array();
+		$range_start   = $total_items > 0 ? ( ( $current_page - 1 ) * $per_page ) + 1 : 0;
+		$range_end     = min( $total_items, $current_page * $per_page );
 
 		if ( $total_items > 0 ) {
 			$conversations = $this->storage->get_conversations( $current_page, $per_page );
@@ -388,9 +398,7 @@ class Omega_Cody_Admin {
 			<?php endif; ?>
 
 				<div style="display: flex; align-items: center; gap: 12px; margin: 16px 0 12px 0;">
-					<form id="omega-cody-sync-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 0;">
-						<input type="hidden" name="action" value="omega_cody_sync" />
-						<?php wp_nonce_field( 'omega_cody_sync' ); ?>
+					<form id="omega-cody-sync-form" style="margin: 0;">
 						<?php
 						submit_button(
 							__( 'Sync with Cody API', 'omega-cody' ),
@@ -501,16 +509,17 @@ class Omega_Cody_Admin {
 			<?php if ( '' !== $pagination_links ) : ?>
 				<div class="tablenav bottom">
 					<div class="tablenav-pages">
-						<span class="displaying-num">
-							<?php
-							printf(
-								/* translators: 1: current page, 2: total pages */
-								esc_html__( 'Page %1$d of %2$d', 'omega-cody' ),
-								absint( $current_page ),
-								absint( $total_pages )
-							);
-							?>
-						</span>
+							<span class="displaying-num">
+								<?php
+								printf(
+									/* translators: 1: first conversation number, 2: last conversation number, 3: total conversations */
+									esc_html__( 'Conversations %1$s-%2$s of %3$s', 'omega-cody' ),
+									esc_html( number_format_i18n( $range_start ) ),
+									esc_html( number_format_i18n( $range_end ) ),
+									esc_html( number_format_i18n( $total_items ) )
+								);
+								?>
+							</span>
 						<?php echo wp_kses_post( $pagination_links ); ?>
 					</div>
 				</div>
@@ -610,7 +619,7 @@ class Omega_Cody_Admin {
 				$this->redirect_settings_error( __( 'Both API Key and Bot ID are required.', 'omega-cody' ) );
 			}
 
-			$resolved_bot_name = $this->sync_service->resolve_bot_name( $api_key, $bot_id );
+			$resolved_bot_name = $this->api_client->find_bot_name_by_id( $api_key, $bot_id );
 			if ( is_wp_error( $resolved_bot_name ) ) {
 				$this->redirect_settings_error( $resolved_bot_name->get_error_message() );
 			}
@@ -665,52 +674,6 @@ class Omega_Cody_Admin {
 
 		wp_safe_redirect( $redirect_url );
 		exit;
-	}
-
-	/**
-	 * Handle manual sync action.
-	 *
-	 * @return void
-	 */
-	public function handle_sync() {
-		if ( ! current_user_can( 'read' ) ) {
-			wp_die( esc_html__( 'You are not allowed to perform this action.', 'omega-cody' ) );
-		}
-
-		check_admin_referer( 'omega_cody_sync' );
-
-		$options = omega_cody_get_options();
-		if ( '' === trim( (string) $options['api_key'] ) || '' === trim( (string) $options['bot_id'] ) ) {
-			$this->redirect_with_sync_notice(
-				array(
-					'omega_cody_sync_status' => 'error',
-					'omega_cody_sync_msg'    => __( 'API Key and Bot ID are required.', 'omega-cody' ),
-				)
-			);
-		}
-
-		$result = $this->sync_service->sync_all( $options['api_key'], $options['bot_id'] );
-
-		if ( is_wp_error( $result ) ) {
-			$this->redirect_with_sync_notice(
-				array(
-					'omega_cody_sync_status' => 'error',
-					'omega_cody_sync_msg'    => $result->get_error_message(),
-				)
-			);
-		}
-
-		$this->record_last_sync_time();
-
-		$this->redirect_with_sync_notice(
-			array(
-				'omega_cody_sync_status' => 'success',
-				'processed'              => absint( $result['conversations_processed'] ),
-				'added'                  => absint( $result['conversations_added'] ),
-				'skipped'                => absint( $result['conversations_skipped'] ),
-				'messages_added'         => absint( $result['messages_added'] ),
-			)
-		);
 	}
 
 	/**
@@ -974,28 +937,6 @@ class Omega_Cody_Admin {
 		return wp_date(
 			get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
 			$clean_timestamp
-		);
-	}
-
-	/**
-	 * Format GMT datetime string into site-local datetime.
-	 *
-	 * @param string|null $gmt_datetime GMT mysql datetime.
-	 * @return string
-	 */
-	private function format_gmt_datetime( $gmt_datetime ) {
-		if ( empty( $gmt_datetime ) || ! is_string( $gmt_datetime ) ) {
-			return __( 'Never', 'omega-cody' );
-		}
-
-		$local_datetime = get_date_from_gmt( $gmt_datetime, 'Y-m-d H:i:s' );
-		if ( empty( $local_datetime ) ) {
-			return __( 'Never', 'omega-cody' );
-		}
-
-		return mysql2date(
-			get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
-			$local_datetime
 		);
 	}
 
