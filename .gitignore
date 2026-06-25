@@ -5,7 +5,7 @@
 
 
 # Built distribution zips.
-/dist/
+/release/dist/
 
-# Deploy credentials for bin/build-zip.command.
-/bin/deploy.env
+# Deploy credentials for release/build-zip.command.
+/release/deploy.env
